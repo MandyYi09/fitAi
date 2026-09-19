@@ -10,5 +10,6 @@ export function evaluate(id,landmarks,width=1,height=1){
  if(id==='side') {const lean=Math.abs((p[11].x+p[12].x-p[23].x-p[24].x)/2)/torso;checks=[[lean>.12&&lean<.6,'Try a small, comfortable side bend; avoid leaning deeply.'],[Math.min(p[15].y,p[16].y)<sh-torso*.25,'Let one arm reach overhead if comfortable.'],[knees.every(x=>x>150),'Keep your legs long, with knees soft.']];}
  if(id==='mountain')checks=[[upright,'Gently stack your shoulders over your hips.'],[Math.abs(p[11].y-p[12].y)<torso*.18,'Relax your shoulders toward a level position.'],[p[15].y>sh+torso*.5&&p[16].y>sh+torso*.5,'Let both arms rest by your sides.']];
  if(id==='warrior')checks=[[upright,'Bring your torso upright over your hips.'],[Math.abs(p[15].y-sh)<torso*.25&&Math.abs(p[16].y-sh)<torso*.25&&arms.every(x=>x>145),'Reach your arms apart near shoulder height, if comfortable.'],[knees.some(x=>x>85&&x<145)&&knees.some(x=>x>150),'Use a gentle front-knee bend with the other leg long. Don’t force depth.']];
+ if(!checks)return {state:'ready',title:'Pose visible',text:'Comparing visible joint angles.'};
  const failed=checks.filter(x=>!x[0]);return failed.length?{state:'warning',title:'A small adjustment',text:failed[0][1]}:{state:'good',title:'Visible alignment looks steady',text:'These checks match the reference. Stay within a comfortable range and keep breathing.'};
 }

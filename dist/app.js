@@ -4,19 +4,14 @@ import { evaluate } from './pose-rules.mjs';
 import { getReference, landmarkIds } from './reference.mjs';
 import { comparePose, projectReference, normalizedLive } from './comparison.mjs';
 const $ = id => document.getElementById(id);
-const poses = [
-    { id: 'reach', name: 'Overhead reach', type: 'stretch', area: 'UPPER BODY', icon: '↟', description: 'Create a little length through your arms and upper body.', cues: ['Stand comfortably, feet about hip-width apart.', 'Reach both arms up without lifting your ribs.', 'Keep your shoulders easy. Breathe naturally.'] },
-    { id: 'side', name: 'Standing side bend', type: 'stretch', area: 'SIDE BODY', icon: '⤴', description: 'A gentle reach to open up the side of your body.', cues: ['Stand with both feet grounded and knees soft.', 'Reach one arm up and lean a little to the side.', 'Keep facing forward. Repeat on the other side.'] },
-    { id: 'mountain', name: 'Mountain pose', type: 'yoga', area: 'TADASANA', icon: '△', description: 'Find a steady foundation and a moment of stillness.', cues: ['Stand tall with your feet comfortably apart.', 'Let your arms rest, shoulders relaxed.', 'Balance your weight across both feet.'] },
-    { id: 'warrior', name: 'Warrior II', type: 'yoga', area: 'VIRABHADRASANA II', icon: '✛', description: 'A grounded stance with a gentle, open reach.', cues: ['Take a comfortable wide stance; turn the front foot outward.', 'Bend the front knee gently in the direction of your toes.', 'Extend your arms. Repeat on the other side.'] }
-];
+import { poses } from './exercises.mjs';
 const presence = new PosePresence();
 const focusView = createFocusView($('stage'),()=>{presence.dismiss();focusView.setExpanded(false);});
 let lastPoseFrame=0;
 let flipped = false;
 let current = 'reach', filter = 'all', stream = null, landmarker = null, starting = false, runId = 0, lastVideo = -1, lastDetect = 0, lastFeedback = 0, remaining = 30, timerId = null, sceneApi = null;
 function drawCards() { $('poses').innerHTML = poses.filter(p => filter === 'all' || p.type === filter).map(p => `<button class="pose-card ${p.id === current ? 'active' : ''}" data-pose="${p.id}" aria-pressed="${p.id === current}"><span class="pose-icon" aria-hidden="true">${p.icon}</span><span><strong>${p.name}</strong><small>${p.type === 'yoga' ? 'Yoga' : 'Stretch'} · 30 sec</small></span><span class="arrow">↗</span></button>`).join(''); document.querySelectorAll('[data-pose]').forEach(b => b.onclick = () => selectPose(b.dataset.pose)); }
-function selectPose(id) { const p = poses.find(p => p.id === id); if (!p) throw Error('Unknown movement'); current = id; stopTimer(); remaining = 30; updateTimer(); $('pose-tag').textContent = `${p.type.toUpperCase()} · ${p.area}`; $('pose-name').textContent = p.name; $('pose-description').textContent = p.description; $('cues').innerHTML = p.cues.map((c, i) => `<div class="cue"><span>${i + 1}</span>${c}</div>`).join(''); drawCards(); sceneApi?.setPose(id); $('switch-side').hidden = !['side','warrior'].includes(id); clearComparison(); setFeedback({ state: 'unknown', title: stream ? 'Find your starting position' : 'Ready when you are', text: stream ? 'Face the camera and keep your whole body visible.' : 'Turn on your camera to see your alignment feedback here.' }); }
+function selectPose(id) { const p = poses.find(p => p.id === id); if (!p) throw Error('Unknown movement'); current = id; flipped=false; stopTimer(); remaining = 30; updateTimer(); $('pose-tag').textContent = `${p.type.toUpperCase()} · ${p.area}`; $('pose-name').textContent = p.name; $('pose-description').textContent = p.description; $('pose-level').textContent=p.level || 'Easy'; $('cues').innerHTML = p.cues.map((c, i) => `<div class="cue"><span>${i + 1}</span>${c}</div>`).join(''); drawCards(); sceneApi?.setPose(id); $('switch-side').hidden = !(p.asymmetric || ['side','warrior'].includes(id)); clearComparison(); setFeedback({ state: 'unknown', title: stream ? 'Find your starting position' : 'Ready when you are', text: stream ? 'Face the camera and keep your whole body visible.' : 'Turn on your camera to see your alignment feedback here.' }); }
 function setFeedback(r) { $('focus-feedback').textContent=r.title+' — '+r.text; document.querySelector('.feedback').className = `feedback ${r.state}`; $('feedback-title').textContent = r.title; $('feedback-text').textContent = r.text; $('feedback-icon').textContent = r.state === 'good' ? '✓' : r.state === 'warning' ? '↗' : '◌'; }
 document.querySelectorAll('[data-filter]').forEach(b => b.onclick = () => { filter = b.dataset.filter; document.querySelectorAll('[data-filter]').forEach(x => x.classList.toggle('selected', x === b)); drawCards() });
 $('help').onclick = () => $('help-dialog').showModal(); $('close-help').onclick = $('got-it').onclick = () => $('help-dialog').close();
@@ -44,7 +39,7 @@ function track(t, token) {
             if (t - lastFeedback > 650) {
                 lastFeedback = t;
                 renderComparison(comparison);
-                setFeedback(assessment.state === 'unknown' ? assessment : comparison.feedback);
+                setFeedback(assessment.state === 'unknown' ? assessment : comparison?.feedback || {state:'unknown',title:'Adjust your camera view',text:'Some joints overlap. Move the camera slightly so each limb is visible.'});
             }
         } requestAnimationFrame(t => track(t, token));
     } catch (e) { stopCamera(); setFeedback({ state: 'warning', title: 'Tracking paused', text: 'Pose tracking encountered a problem. Restart the camera to try again.' }); }
@@ -55,6 +50,8 @@ function clearComparison() {
  renderComparison(null); sceneApi?.setLive(null); lastFeedback=0;
 }
 function renderComparison(result) {
+ $('stage').dataset.match=result?.quality?.band || 'neutral';
+ $('match-status').textContent=result?.quality?.label || 'Waiting for a clear pose';
  $('comparison-status').textContent=result ? 'Your angles / reference angles' : 'Full-body tracking needed to compare';
  $('comparison-metrics').replaceChildren();
  for(const row of result?.metrics || []) {
@@ -66,7 +63,7 @@ function renderComparison(result) {
 }
 $('focus-camera').onclick=()=>$('camera-dialog').showModal();
 $('focus-stop').onclick=()=>stopCamera();
-setInterval(()=>{if(stream && performance.now()-lastPoseFrame>500){focusView.setExpanded(presence.update(false,performance.now()));sceneApi?.setLive(null);}},250);
+setInterval(()=>{if(stream && performance.now()-lastPoseFrame>500){focusView.setExpanded(presence.update(false,performance.now()));sceneApi?.setLive(null);renderComparison(null);}},250);
 $('show-camera').onclick=()=>$('camera-dialog').showModal();
 $('close-camera').onclick=()=>$('camera-dialog').close();
 $('switch-side').onclick=()=>{flipped=!flipped;sceneApi?.setPose(current);clearComparison();};
@@ -92,7 +89,7 @@ async function initThree() {
             const pts=values.map(v=>new THREE.Vector3(...v));liveJoints.forEach((m,i)=>m.position.copy(pts[i]));
             links.forEach(([a,b],i)=>{const d=pts[b].clone().sub(pts[a]);const m=liveBones[i];m.position.copy(pts[a]).add(pts[b]).multiplyScalar(.5);m.scale.y=d.length();m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());m.material.color.set(adjust.includes(landmarkIds[a])||adjust.includes(landmarkIds[b])?0xc37b20:0x475fb6);});
         } }; new ResizeObserver(() => { const { width, height } = host.getBoundingClientRect(); if (!width || !height) return; renderer.setSize(width, height); camera.aspect = width / height; camera.position.z = Math.max(6.8, 4.6 / camera.aspect); camera.updateProjectionMatrix(); }).observe(host);
-        renderer.setAnimationLoop(() => { if (document.hidden || host.hidden) return; coords.forEach((v, i) => { v.lerp(new THREE.Vector3(...target[i]), .08); joints[i].position.copy(v) }); links.forEach(([a, b], i) => { const d = new THREE.Vector3().subVectors(coords[b], coords[a]); bones[i].position.copy(coords[a]).add(coords[b]).multiplyScalar(.5); bones[i].scale.y = d.length(); bones[i].quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()) }); const shoulder = coords[0].clone().add(coords[1]).multiplyScalar(.5); head.position.copy(shoulder).add(new THREE.Vector3(0, .31, 0)); neck.position.copy(shoulder).add(new THREE.Vector3(0, .12, 0)); torso.position.copy(shoulder).add(coords[6].clone().add(coords[7]).multiplyScalar(.5)).multiplyScalar(.5); torso.rotation.z = current === 'side' ? (flipped ? -.28 : .28) : 0; group.rotation.y += (rotation - group.rotation.y) * .06; renderer.render(scene, camera) });
+        renderer.setAnimationLoop(() => { if (document.hidden || host.hidden) return; coords.forEach((v, i) => { v.lerp(new THREE.Vector3(...target[i]), .08); joints[i].position.copy(v) }); links.forEach(([a, b], i) => { const d = new THREE.Vector3().subVectors(coords[b], coords[a]); bones[i].position.copy(coords[a]).add(coords[b]).multiplyScalar(.5); bones[i].scale.y = d.length(); bones[i].quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()) }); const shoulder = coords[0].clone().add(coords[1]).multiplyScalar(.5); head.position.copy(shoulder).add(new THREE.Vector3(0, .31, 0)); neck.position.copy(shoulder).add(new THREE.Vector3(0, .12, 0)); torso.position.copy(shoulder).add(coords[6].clone().add(coords[7]).multiplyScalar(.5)).multiplyScalar(.5); torso.rotation.z = -Math.atan2((coords[0].x+coords[1].x-coords[6].x-coords[7].x)/2,(coords[0].y+coords[1].y-coords[6].y-coords[7].y)/2); group.rotation.y += (rotation - group.rotation.y) * .06; renderer.render(scene, camera) });
     } catch (e) { $('stage-note').innerHTML = '3D guide could not load.<small>You can still follow the written cues or enable your camera.</small>'; $('rotate').disabled = true; }
 }
 initThree();
