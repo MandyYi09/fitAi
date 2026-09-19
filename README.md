@@ -27,3 +27,9 @@ The library now contains 24 movements (20 added) with pose-specific geometry and
 Automatic browser-filling animation enters after 600 ms of stable tracking and returns after 1500 ms of tracking loss. Escape dismisses it until a new loss/reacquisition cycle. Reduced-motion preferences disable the animation. Camera imagery remains opt-in.
 
 Run `node tests/pose-comparison.mjs` for all 24 references in both directions, altered-limb corrections, visibility checks, color boundaries, and focus-view timing. Live webcam and visual animation testing still require browser acceptance testing.
+
+## Side-view yoga and model visibility
+
+The library contains 32 movements, adding Downward-facing Dog, High Plank, Forearm Plank, Low Cobra, Sphinx, Extended Child's Pose, Tabletop, and Chair. These default to side-view references and use the clearly visible body side for comparison. Hidden-side joints are not displayed as tracked points. Front/Side buttons rotate each model for inspection and remember that pose's chosen view during the session; they do not change the camera setup required for tracking.
+
+The camera framing fits each pose's height and width and expands its screen coverage in browser-filling mode. Head and torso orientation now follow the body axis for floor poses. A detected comparable pose lightens the reference material, darkens the tracking overlay, and uses subtle red/orange/green similarity backgrounds. This remains a 2D angle prototype, not a load, spine-curve, pain or safety assessment. Live camera/browser visual acceptance testing remains unverified.
