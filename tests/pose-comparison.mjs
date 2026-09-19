@@ -1,11 +1,11 @@
-import {prepareLandmarks,isSidePose} from '../dist/tracking-view.mjs';
+import {prepareLandmarks,isSidePose} from '../src/tracking-view.mjs';
 import assert from 'node:assert/strict';
-import {poses} from '../dist/exercises.mjs';
-import {getReference,landmarkIds} from '../dist/reference.mjs';
-import {comparePose,normalizedLive} from '../dist/comparison.mjs';
-import {evaluate} from '../dist/pose-rules.mjs';
-import {matchQuality} from '../dist/match-quality.mjs';
-import {PosePresence} from '../dist/pose-presence.mjs';
+import {poses} from '../src/exercises.mjs';
+import {getReference,landmarkIds} from '../src/reference.mjs';
+import {comparePose,normalizedLive} from '../src/comparison.mjs';
+import {evaluate} from '../src/pose-rules.mjs';
+import {matchQuality} from '../src/match-quality.mjs';
+import {PosePresence} from '../src/pose-presence.mjs';
 assert.equal(poses.length,32);assert.equal(new Set(poses.map(p=>p.id)).size,32);
 for(const pose of poses)for(const flipped of [false,true]){
  const ref=getReference(pose.id,flipped);assert.equal(ref.length,12);
