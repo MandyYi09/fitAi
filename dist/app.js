@@ -1,3 +1,5 @@
+import { PosePresence } from './pose-presence.mjs';
+import { createFocusView } from './focus-view.mjs';
 import { evaluate } from './pose-rules.mjs';
 import { getReference, landmarkIds } from './reference.mjs';
 import { comparePose, projectReference, normalizedLive } from './comparison.mjs';
@@ -8,17 +10,20 @@ const poses = [
     { id: 'mountain', name: 'Mountain pose', type: 'yoga', area: 'TADASANA', icon: '△', description: 'Find a steady foundation and a moment of stillness.', cues: ['Stand tall with your feet comfortably apart.', 'Let your arms rest, shoulders relaxed.', 'Balance your weight across both feet.'] },
     { id: 'warrior', name: 'Warrior II', type: 'yoga', area: 'VIRABHADRASANA II', icon: '✛', description: 'A grounded stance with a gentle, open reach.', cues: ['Take a comfortable wide stance; turn the front foot outward.', 'Bend the front knee gently in the direction of your toes.', 'Extend your arms. Repeat on the other side.'] }
 ];
+const presence = new PosePresence();
+const focusView = createFocusView($('stage'),()=>{presence.dismiss();focusView.setExpanded(false);});
+let lastPoseFrame=0;
 let flipped = false;
 let current = 'reach', filter = 'all', stream = null, landmarker = null, starting = false, runId = 0, lastVideo = -1, lastDetect = 0, lastFeedback = 0, remaining = 30, timerId = null, sceneApi = null;
 function drawCards() { $('poses').innerHTML = poses.filter(p => filter === 'all' || p.type === filter).map(p => `<button class="pose-card ${p.id === current ? 'active' : ''}" data-pose="${p.id}" aria-pressed="${p.id === current}"><span class="pose-icon" aria-hidden="true">${p.icon}</span><span><strong>${p.name}</strong><small>${p.type === 'yoga' ? 'Yoga' : 'Stretch'} · 30 sec</small></span><span class="arrow">↗</span></button>`).join(''); document.querySelectorAll('[data-pose]').forEach(b => b.onclick = () => selectPose(b.dataset.pose)); }
 function selectPose(id) { const p = poses.find(p => p.id === id); if (!p) throw Error('Unknown movement'); current = id; stopTimer(); remaining = 30; updateTimer(); $('pose-tag').textContent = `${p.type.toUpperCase()} · ${p.area}`; $('pose-name').textContent = p.name; $('pose-description').textContent = p.description; $('cues').innerHTML = p.cues.map((c, i) => `<div class="cue"><span>${i + 1}</span>${c}</div>`).join(''); drawCards(); sceneApi?.setPose(id); $('switch-side').hidden = !['side','warrior'].includes(id); clearComparison(); setFeedback({ state: 'unknown', title: stream ? 'Find your starting position' : 'Ready when you are', text: stream ? 'Face the camera and keep your whole body visible.' : 'Turn on your camera to see your alignment feedback here.' }); }
-function setFeedback(r) { document.querySelector('.feedback').className = `feedback ${r.state}`; $('feedback-title').textContent = r.title; $('feedback-text').textContent = r.text; $('feedback-icon').textContent = r.state === 'good' ? '✓' : r.state === 'warning' ? '↗' : '◌'; }
+function setFeedback(r) { $('focus-feedback').textContent=r.title+' — '+r.text; document.querySelector('.feedback').className = `feedback ${r.state}`; $('feedback-title').textContent = r.title; $('feedback-text').textContent = r.text; $('feedback-icon').textContent = r.state === 'good' ? '✓' : r.state === 'warning' ? '↗' : '◌'; }
 document.querySelectorAll('[data-filter]').forEach(b => b.onclick = () => { filter = b.dataset.filter; document.querySelectorAll('[data-filter]').forEach(x => x.classList.toggle('selected', x === b)); drawCards() });
 $('help').onclick = () => $('help-dialog').showModal(); $('close-help').onclick = $('got-it').onclick = () => $('help-dialog').close();
 function updateTimer() { $('time').textContent = `00:${String(remaining).padStart(2, '0')}`; }
 function stopTimer() { clearInterval(timerId); timerId = null; $('timer').textContent = '▶'; $('timer').setAttribute('aria-label', 'Start hold timer'); }
 $('timer').onclick = () => { if (timerId) { stopTimer(); return } if (!remaining) remaining = 30; $('timer').textContent = 'Ⅱ'; $('timer').setAttribute('aria-label', 'Pause hold timer'); timerId = setInterval(() => { remaining--; updateTimer(); if (!remaining) { stopTimer(); setFeedback({ state: 'unknown', title: 'Take a breath', text: 'Release gently. Rest or switch sides when you’re ready.' }) } }, 1000); };
-function stopCamera() { runId++; stream?.getTracks().forEach(t => t.stop()); stream = null; $('video').srcObject = null; $('video').hidden = $('overlay').hidden = true; $('three').hidden = false; $('stage-note').hidden = false; $('rotate').hidden = false; $('stage').classList.remove('live'); $('show-camera').disabled=true; $('camera-dialog').close(); clearComparison(); $('mode').textContent = '○   REFERENCE PREVIEW'; $('camera').textContent = '▣   Enable camera'; $('camera-title').textContent = 'Your space. Your pace.'; $('camera-sub').textContent = 'Enable your camera to get live alignment cues.'; stopTimer(); setFeedback({ state: 'unknown', title: 'Camera is off', text: 'Your reference guide is ready. You can restart whenever you like.' }); }
+function stopCamera() { presence.reset();focusView.setExpanded(false);runId++; stream?.getTracks().forEach(t => t.stop()); stream = null; $('video').srcObject = null; $('video').hidden = $('overlay').hidden = true; $('three').hidden = false; $('stage-note').hidden = false; $('rotate').hidden = false; $('stage').classList.remove('live'); $('show-camera').disabled=true; $('camera-dialog').close(); clearComparison(); $('mode').textContent = '○   REFERENCE PREVIEW'; $('camera').textContent = '▣   Enable camera'; $('camera-title').textContent = 'Your space. Your pace.'; $('camera-sub').textContent = 'Enable your camera to get live alignment cues.'; stopTimer(); setFeedback({ state: 'unknown', title: 'Camera is off', text: 'Your reference guide is ready. You can restart whenever you like.' }); }
 $('camera').onclick = async () => {
     if (stream) { stopCamera(); return } if (starting) return; starting = true; $('camera').disabled = true; $('camera').textContent = 'Connecting…'; try {
         if (!navigator.mediaDevices?.getUserMedia) throw Error('Camera access requires HTTPS or localhost in a supported browser.'); stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }, audio: false }); $('camera-sub').textContent = 'Preparing on-device pose tracking…'; if (!landmarker) { const { FilesetResolver, PoseLandmarker } = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/vision_bundle.mjs'); const files = await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/wasm'); landmarker = await PoseLandmarker.createFromOptions(files, { baseOptions: { modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task' }, runningMode: 'VIDEO', numPoses: 1, minPoseDetectionConfidence: .6, minPosePresenceConfidence: .6, minTrackingConfidence: .6 }); }
@@ -31,7 +36,9 @@ function track(t, token) {
         const v = $('video'); if (v.readyState >= 2 && v.currentTime !== lastVideo && t - lastDetect > 85) {
             lastVideo = v.currentTime; lastDetect = t; const result = landmarker.detectForVideo(v, t); const c = $('overlay'); c.width = v.videoWidth; c.height = v.videoHeight; const ctx = c.getContext('2d'); ctx.clearRect(0, 0, c.width, c.height); const p = result.landmarks[0];
             const assessment = evaluate(current, p, v.videoWidth, v.videoHeight);
+            lastPoseFrame=t;
             const comparison = assessment.state === 'unknown' ? null : comparePose(current, p, c.width, c.height, flipped);
+            focusView.setExpanded(presence.update(!!comparison && !!sceneApi,t));
             drawComparison(ctx, p, comparison, c.width, c.height);
             sceneApi?.setLive(comparison ? normalizedLive(current,p,c.width,c.height) : null,comparison?.adjustJoints || []);
             if (t - lastFeedback > 650) {
@@ -57,6 +64,9 @@ function renderComparison(result) {
   el.append(label,value);$('comparison-metrics').append(el);
  }
 }
+$('focus-camera').onclick=()=>$('camera-dialog').showModal();
+$('focus-stop').onclick=()=>stopCamera();
+setInterval(()=>{if(stream && performance.now()-lastPoseFrame>500){focusView.setExpanded(presence.update(false,performance.now()));sceneApi?.setLive(null);}},250);
 $('show-camera').onclick=()=>$('camera-dialog').showModal();
 $('close-camera').onclick=()=>$('camera-dialog').close();
 $('switch-side').onclick=()=>{flipped=!flipped;sceneApi?.setPose(current);clearComparison();};
