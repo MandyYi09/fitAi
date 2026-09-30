@@ -29,11 +29,12 @@
         <div class="workspace">
             <aside class="library">
                 <div class="section-title">
-                    <h2>Your practice</h2><span>32 movements</span>
+                    <h2>Your practice</h2><span id="movement-count">44 movements</span>
                 </div>
                 <div class="filters" role="group" aria-label="Movement category"><button class="selected"
                         data-filter="all">All</button><button data-filter="stretch">Stretches</button><button
-                        data-filter="yoga">Yoga</button></div>
+                        data-filter="yoga">Yoga</button><button data-filter="rowing">Rowing</button><button data-filter="tennis">Tennis</button><button data-filter="gentle">Gentle</button></div>
+                <p id="category-intro" class="category-intro" hidden></p>
                 <div id="poses"></div>
                 <div class="before"><span>☀</span>
                     <h3>Ease into it.</h3>
@@ -43,10 +44,11 @@
                 </div>
             </aside>
             <section class="studio">
+                <nav id="sequence" class="sequence" aria-label="Movement steps" hidden><div class="sequence-heading"><strong id="sequence-title"></strong><span id="sequence-count"></span></div><div id="sequence-steps"></div></nav>
                 <div class="stage" id="stage">
                     <div class="stage-top"><span class="pill" id="mode">○ &nbsp; REFERENCE PREVIEW</span><span
                             class="stage-type">3D MOVEMENT GUIDE</span></div>
-                    <div id="three"></div><div class="focus-toolbar"><button id="focus-camera" class="glass">Show camera</button><button id="focus-stop" class="glass">Stop camera</button><button id="exit-focus" class="glass" hidden>Back to studio · Esc</button></div><div id="focus-feedback" class="focus-feedback" aria-live="polite"></div><span class="reference-label">3D reference · 2D pose estimate</span><span id="match-status" class="match-status" aria-live="polite">Waiting for a clear pose</span><div class="stage-note" id="stage-note">A little space goes a long way.<small>Step back until your
+                    <div id="three"></div><div class="focus-toolbar"><button id="focus-camera" class="glass">Show camera</button><button id="focus-stop" class="glass">Stop camera</button><button id="exit-focus" class="glass" hidden>Back to studio · Esc</button></div><div id="focus-feedback" class="focus-feedback" aria-live="polite"></div><span id="reference-label" class="reference-label">3D reference · 2D pose estimate</span><span id="match-status" class="match-status" aria-live="polite">Waiting for a clear pose</span><div class="stage-note" id="stage-note">A little space goes a long way.<small>Step back until your
                             whole body is visible.</small></div>
                     <div class="stage-bottom"><span id="angle-label">↔ &nbsp; Face your camera</span><button id="switch-side" class="glass" hidden>⇄ Switch side</button><span class="model-views" role="group" aria-label="3D model viewing angle"><button class="glass" data-model-view="front" aria-pressed="true">Front</button><button class="glass" data-model-view="side" aria-pressed="false">Side</button></span><button id="rotate"
                             class="glass">↻ Rotate guide</button></div>
@@ -64,21 +66,22 @@
                 <div class="eyebrow" id="pose-tag">STRETCH · UPPER BODY</div>
                 <h2 id="pose-name"></h2>
                 <p id="pose-description"></p>
-                <div class="facts"><span>◎ <b id="hold-duration">30 sec</b><small>Suggested hold</small></span><span>⌁
+                <div id="practice-note" class="practice-note" hidden><p id="practice-note-text"></p><a id="practice-source" target="_blank" rel="noreferrer"></a></div>
+                <div class="facts"><span>◎ <b id="hold-duration">30 sec</b><small id="duration-label">Suggested hold</small></span><span>⌁
                         <b id="pose-level">Easy</b><small>Take it gently</small></span></div>
                 <div class="divider"></div>
-                <h3>Find your alignment</h3>
+                <h3 id="cue-heading">Find your alignment</h3>
                 <div id="cues"></div>
                 <div class="feedback" aria-live="polite"><span id="feedback-icon">◌</span>
                     <div><strong id="feedback-title">Ready when you are</strong>
                         <p id="feedback-text">Turn on your camera to see your alignment feedback here.</p>
                     </div>
                 </div>
-                <div class="timer">
-                    <div><span>COMFORTABLE HOLD</span><b id="time">00:30</b></div><button id="timer"
+                <div class="timer" id="timer-panel">
+                    <div><span id="timer-label">COMFORTABLE HOLD</span><b id="time">00:30</b></div><button id="timer"
                         aria-label="Start hold timer">▶</button>
                 </div>
-                <p class="timer-note">A manual timer. Release sooner if you need to.</p>
+                <p class="timer-note" id="timer-note">A manual timer. Release sooner if you need to.</p>
             </aside>
         </div>
         <footer><span>MOVE WITH AWARENESS, NOT PERFECTION.</span>
@@ -91,7 +94,7 @@
         <h2>A little guidance.<br>A lot of listening to your body.</h2>
         <ol>
             <li>Choose a movement and follow its gentle setup cues.</li>
-            <li>Place your camera at hip height, with your full body visible and good lighting.</li>
+            <li>Follow the selected movement’s camera setup with good lighting. Gentle movements only need your shoulders, arms and hips in frame. Rowing and Tennis are step-by-step demonstrations without camera scoring.</li>
             <li>Enable the camera. Landmarks and alignment cues appear when tracking is clear.</li>
             <li>Use the optional timer while comfortable. Stop immediately if it hurts.</li>
         </ol>
@@ -100,7 +103,7 @@
             health condition, ask a qualified professional which movements suit you.</p><p>More guidance: <a href="https://health.clevelandclinic.org/downward-dog-adho-mukha-svanasana" target="_blank" rel="noreferrer">Downward Dog setup</a>,  <a href="https://www.nhs.uk/live-well/exercise/sitting-exercises/" target="_blank" rel="noreferrer">NHS seated exercises</a> and <a href="https://www.nhs.uk/live-well/exercise/how-to-stretch-after-exercising/" target="_blank" rel="noreferrer">stretching after exercise</a>.</p><button id="got-it"
             class="primary">Find my space</button>
     </dialog>
-    <script type="module" src="app.js?v=6"></script>
+    <script type="module" src="app.js?v=7"></script>
 </body>
 
 </html>

@@ -2,6 +2,7 @@ import {isSidePose,requiredLandmarks} from './tracking-view.mjs';
 import {matchQuality} from './match-quality.mjs';
 import {getReference,landmarkIds} from './reference.mjs';
 import {angle} from './pose-rules.mjs';
+import {poses} from './exercises.mjs';
 export function projectReference(id,p,width,height,flipped=false){
  const ref=getReference(id,flipped),hx=(p[23].x+p[24].x)*width/2,hy=(p[23].y+p[24].y)*height/2;
  const torso=Math.hypot((p[11].x+p[12].x)*width/2-hx,(p[11].y+p[12].y)*height/2-hy);
@@ -12,9 +13,11 @@ export function normalizedLive(id,p,width,height,flipped=false){
  const ref=getReference(id,flipped),hx=(p[23].x+p[24].x)*width/2,hy=(p[23].y+p[24].y)*height/2;
  const length=Math.hypot((p[11].x+p[12].x)*width/2-hx,(p[11].y+p[12].y)*height/2-hy);
  if(length<1)return null;const ry=(ref[6][1]+ref[7][1])/2,scale=Math.hypot((ref[0][0]+ref[1][0]-ref[6][0]-ref[7][0])/2,(ref[0][1]+ref[1][1])/2-ry)/length;
- return landmarkIds.map(i=>(p[i].visibility??0)<.65?null:[(ref[6][0]+ref[7][0])/2-(p[i].x*width-hx)*scale,ry-(p[i].y*height-hy)*scale,.19]);
+ const allowed=requiredLandmarks(id,p);
+ return landmarkIds.map(i=>!allowed.includes(i)||(p[i]?.visibility??0)<.65?null:[(ref[6][0]+ref[7][0])/2-(p[i].x*width-hx)*scale,ry-(p[i].y*height-hy)*scale,.19]);
 }
 export function comparePose(id,p,width,height,flipped=false){
+ if(poses.find(pose=>pose.id===id)?.demoOnly)return null;
  const ref=projectReference(id,p,width,height,flipped),actual=p.map(v=>({x:v.x*width,y:v.y*height}));
  const defs=[['Left elbow',[11,13,15],'Gently lengthen your left arm','Soften your left elbow'],['Right elbow',[12,14,16],'Gently lengthen your right arm','Soften your right elbow']];
  defs.push(['Left arm lift',[23,11,13],'Raise your left arm a little','Lower your left arm a little'],['Right arm lift',[24,12,14],'Raise your right arm a little','Lower your right arm a little']);
