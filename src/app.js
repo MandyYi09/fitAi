@@ -7,13 +7,24 @@ import { comparePose, projectReference, normalizedLive } from './comparison.mjs'
 const $ = id => document.getElementById(id);
 import { poses } from './exercises.mjs';
 import { categoryLabels, practiceModes, sequenceFor } from './practice-modes.mjs';
+import {createHand, orientHand, createWristDetail, wristExamples} from './hand-guide.mjs';
 const selectedPose = () => poses.find(p => p.id === current);
 const framing = id => isUpperPose(id) ? 'Face the camera with shoulders, elbows, wrists and hips visible. Feet can stay out of frame.' : isSidePose(id) ? 'Turn side-on with your whole body visible.' : 'Face the camera with your whole body visible.';
 const presence = new PosePresence();
 const focusView = createFocusView($('stage'),()=>{presence.dismiss();focusView.setExpanded(false);});
 let lastPoseFrame=0;
 let flipped = false;
+let wristMode = 'aligned';
 let current = 'reach', filter = 'all', stream = null, landmarker = null, starting = false, runId = 0, lastVideo = -1, lastDetect = 0, lastFeedback = 0, remaining = 30, timerId = null, sceneApi = null;
+function setWristMode(mode) {
+ wristMode = selectedPose().wristStudy && wristExamples[mode] ? mode : 'aligned';
+ document.querySelectorAll('[data-wrist]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.wrist===wristMode)));
+ $('wrist-explanation').textContent=wristExamples[wristMode].text;
+ $('wrist-detail').setAttribute('aria-label',wristExamples[wristMode].text);
+ sceneApi?.setWristMode(wristMode);
+ if(selectedPose().type==='rowing')renderComparison(null);
+}
+document.querySelectorAll('[data-wrist]').forEach(b=>b.onclick=()=>setWristMode(b.dataset.wrist));
 function drawCards() {
  const shown=poses.filter(p => filter === 'all' || p.type === filter);
  $('movement-count').textContent=`${shown.length} movements`;
@@ -25,6 +36,7 @@ function drawCards() {
 function selectPose(id, keepSide=false) {
  const p=poses.find(p=>p.id===id); if(!p)throw Error('Unknown movement');
  if(p.demoOnly && stream)stopCamera();
+ if(!p.wristStudy || !selectedPose().wristStudy)wristMode='aligned';
  current=id; if(!keepSide)flipped=false; stopTimer(); remaining=p.hold || 30; updateTimer();
  $('hold-duration').textContent=p.demoOnly ? 'Step by step' : remaining+' sec';
  $('duration-label').textContent=p.demoOnly ? 'At your own pace' : p.type==='gentle' ? 'Optional practice time' : 'Suggested hold';
@@ -39,6 +51,7 @@ function selectPose(id, keepSide=false) {
  const hint=document.createElement('small'); hint.textContent=p.demoOnly ? 'Select the numbered steps above the guide.' : framing(id); $('stage-note').append(hint);
  $('reference-label').textContent=p.demoOnly ? 'Illustrative 3D movement study' : isUpperPose(id) ? '3D reference · upper-body estimate' : '3D reference · 2D pose estimate';
  $('cues').innerHTML=p.cues.map((c,i)=>`<div class="cue"><span>${i+1}</span>${c}</div>`).join('');
+ $('wrist-study').hidden=!p.wristStudy;
  $('cue-heading').textContent=p.demoOnly ? 'Explore this step' : 'Move comfortably';
  const mode=practiceModes[p.type]; $('practice-note').hidden=!mode;
  $('practice-note-text').textContent=mode?.note || ''; $('practice-source').textContent=mode?.sourceLabel || ''; if(mode)$('practice-source').href=mode.source;
@@ -53,7 +66,7 @@ function selectPose(id, keepSide=false) {
  $('camera-title').textContent=p.demoOnly ? 'Learn the sequence.' : 'Your space. Your pace.';
  $('camera-sub').textContent=p.demoOnly ? 'Step through the guide above. Camera scoring is not available for this sequence.' : stream ? framing(id) : 'Enable your camera for an approximate body-shape comparison.';
  $('show-camera').hidden=document.querySelector('.comparison-panel').hidden=!!p.demoOnly;
- drawCards();sceneApi?.setPose(id); $('switch-side').hidden=!(p.asymmetric || ['side','warrior'].includes(id));
+ drawCards();sceneApi?.setPose(id);setWristMode(wristMode); $('switch-side').hidden=!(p.asymmetric || ['side','warrior'].includes(id));
  clearComparison();
  setFeedback({state:'unknown',title:p.demoOnly ? 'Movement study' : stream ? 'Find your starting position' : 'Ready when you are',text:p.demoOnly ? 'Use the numbered steps to inspect each position. These illustrative shapes have not been validated by a coach.' : stream ? framing(id) : 'You can follow the guide without a camera, or enable it for body-shape feedback.'});
 }
@@ -97,7 +110,7 @@ function clearComparison() {
 }
 function renderComparison(result) {
  $('stage').dataset.match=result?.quality?.band || 'neutral';
- $('match-status').textContent=selectedPose().demoOnly ? 'Demonstration · no score' : result?.quality?.label || 'Waiting for a clear pose';
+ $('match-status').textContent=selectedPose().type==='rowing' && wristMode!=='aligned' ? 'Comparison example · not a target' : selectedPose().demoOnly ? 'Demonstration · no score' : result?.quality?.label || 'Waiting for a clear pose';
  $('comparison-status').textContent=result ? 'Your angles / reference angles' : isUpperPose(current) ? 'Upper-body tracking needed to compare' : 'Full-body tracking needed to compare';
  $('comparison-metrics').replaceChildren();
  for(const row of result?.metrics || []) {
@@ -128,39 +141,82 @@ selectPose('reach');
 async function initThree() {
     try {
         const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js'); const host = $('three'); const scene = new THREE.Scene(); const camera = new THREE.PerspectiveCamera(34, 1, .1, 100); camera.position.set(0, 1.65, 6.8); camera.lookAt(0, 1.15, 0); const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true }); renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.shadowMap.enabled = true; host.append(renderer.domElement); scene.add(new THREE.HemisphereLight(0xffffff, 0x6f7d59, 2.5)); const light = new THREE.DirectionalLight(0xffffff, 3); light.position.set(-3, 5, 4); scene.add(light); const group = new THREE.Group(); scene.add(group); const mat = new THREE.MeshStandardMaterial({ color: 0x6c8058, roughness: .65, metalness: .05 }); const jointmat = new THREE.MeshStandardMaterial({ color: 0xd8ecad, roughness: .55 }); const headmat = new THREE.MeshStandardMaterial({ color: 0x869974, roughness: .55 }); const floor = new THREE.Mesh(new THREE.CircleGeometry(1.4, 80), new THREE.MeshBasicMaterial({ color: 0xafbda1, transparent: true, opacity: .28 })); floor.rotation.x = -Math.PI / 2; floor.position.y = .02; scene.add(floor); const rings = new THREE.Mesh(new THREE.RingGeometry(1.18, 1.19, 100), new THREE.MeshBasicMaterial({ color: 0x96aa81, side: THREE.DoubleSide, transparent: true, opacity: .5 })); rings.rotation.x = -Math.PI / 2; rings.position.y = .03; scene.add(rings);
-        const links = [[0, 1], [0, 2], [2, 4], [1, 3], [3, 5], [0, 6], [1, 7], [6, 7], [6, 8], [8, 10], [7, 9], [9, 11]]; let target = getReference(current, flipped), coords = target.map(p => new THREE.Vector3(...p)); const joints = coords.map(() => { const m = new THREE.Mesh(new THREE.SphereGeometry(.075, 20, 16), jointmat); group.add(m); return m }); const bones = links.map(() => { const m = new THREE.Mesh(new THREE.CylinderGeometry(.058, .067, 1, 16), mat); group.add(m); return m }); const head = new THREE.Mesh(new THREE.SphereGeometry(.145, 32, 24), headmat); head.scale.y = 1.18; group.add(head); const neck = new THREE.Mesh(new THREE.CylinderGeometry(.055, .07, .18, 16), mat); group.add(neck); const torso = new THREE.Mesh(new THREE.SphereGeometry(1, 28, 20), mat); torso.scale.set(.22, .35, .12); group.add(torso); const liveGroup=new THREE.Group();group.add(liveGroup);liveGroup.visible=false;
+        const links = [[0, 1], [0, 2], [2, 4], [1, 3], [3, 5], [0, 6], [1, 7], [6, 7], [6, 8], [8, 10], [7, 9], [9, 11]]; let target = getReference(current, flipped), neutralCoords = target.map(p => new THREE.Vector3(...p)), coords = neutralCoords.map(p=>p.clone()); const joints = coords.map(() => { const m = new THREE.Mesh(new THREE.SphereGeometry(.075, 20, 16), jointmat); group.add(m); return m }); const bones = links.map(() => { const m = new THREE.Mesh(new THREE.CylinderGeometry(.058, .067, 1, 16), mat); group.add(m); return m }); const head = new THREE.Mesh(new THREE.SphereGeometry(.145, 32, 24), headmat); head.scale.y = 1.18; group.add(head); const neck = new THREE.Mesh(new THREE.CylinderGeometry(.055, .07, .18, 16), mat); group.add(neck); const torso = new THREE.Mesh(new THREE.SphereGeometry(1, 28, 20), mat); torso.scale.set(.22, .35, .12); group.add(torso); const liveGroup=new THREE.Group();group.add(liveGroup);liveGroup.visible=false;
         const liveBones=links.map(()=>{const material=new THREE.MeshBasicMaterial({color:0x243950,depthTest:false});const mesh=new THREE.Mesh(new THREE.CylinderGeometry(.022,.022,1,10),material);mesh.renderOrder=3;liveGroup.add(mesh);return mesh;});
         const liveJoints=landmarkIds.map(()=>{const mesh=new THREE.Mesh(new THREE.SphereGeometry(.038,12,10),new THREE.MeshBasicMaterial({color:0x243950,depthTest:false}));mesh.renderOrder=4;liveGroup.add(mesh);return mesh;});
+        const handMaterial=new THREE.MeshStandardMaterial({color:0x91a979,roughness:.65});
+        const wristMaterial=new THREE.MeshStandardMaterial({color:0xd8ecad,roughness:.55});
+        const hands=[-1,1].map(side=>{const hand=createHand(THREE,handMaterial,side);group.add(hand.root);return {...hand,side,gripPoint:new THREE.Vector3()};});
+        const wristDetail=createWristDetail(THREE,$('wrist-detail'));wristDetail.setMode(wristMode);
         const propMaterial=new THREE.MeshStandardMaterial({color:0x9c8060,roughness:.8});
         const chairGroup=new THREE.Group();group.add(chairGroup);
         const seat=new THREE.Mesh(new THREE.BoxGeometry(.67,.07,.62),propMaterial);seat.position.set(0,.64,.08);chairGroup.add(seat);
         const back=new THREE.Mesh(new THREE.BoxGeometry(.67,.49,.055),propMaterial);back.position.set(0,1.03,-.23);chairGroup.add(back);
         for(const x of [-.27,.27])for(const z of [-.18,.32]){const leg=new THREE.Mesh(new THREE.CylinderGeometry(.028,.028,.59,10),propMaterial);leg.position.set(x,.32,z);chairGroup.add(leg);}
-        const handle=new THREE.Mesh(new THREE.CylinderGeometry(.025,.025,.52,12),propMaterial);handle.rotation.x=Math.PI/2;group.add(handle);
+        const sculls=[-1,1].map(side=>{
+            const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.018,.025,1,12),propMaterial);group.add(shaft);
+            const blade=new THREE.Mesh(new THREE.SphereGeometry(1,24,12),new THREE.MeshStandardMaterial({color:side<0?0xc2d8e1:0xe7d9b7,roughness:.6}));blade.scale.set(.23,.055,.12);group.add(blade);
+            return {side,shaft,blade,end:new THREE.Vector3()};
+        });
+        const hull=new THREE.Mesh(new THREE.SphereGeometry(1,32,16),new THREE.MeshStandardMaterial({color:0x9cb5ae,roughness:.8}));hull.scale.set(1.05,.08,.21);hull.position.set(-.2,.52,0);group.add(hull);
         const racket=new THREE.Group();group.add(racket);
         const grip=new THREE.Mesh(new THREE.CylinderGeometry(.026,.026,.28,12),propMaterial);grip.position.y=.14;racket.add(grip);
         const rim=new THREE.Mesh(new THREE.TorusGeometry(.18,.014,8,36),mat);rim.scale.y=1.3;rim.position.y=.5;racket.add(rim);
         const strings=new THREE.Mesh(new THREE.CircleGeometry(.165,24),new THREE.MeshBasicMaterial({color:0x7c8e70,transparent:true,opacity:.22,side:THREE.DoubleSide}));strings.scale.y=1.3;strings.position.y=.5;racket.add(strings);
         function updateProps(){
-            const type=selectedPose().type;chairGroup.visible=type==='gentle';handle.visible=type==='rowing';racket.visible=type==='tennis';
-            handle.position.copy(coords[4]).add(coords[5]).multiplyScalar(.5);
+            const type=selectedPose().type;chairGroup.visible=type==='gentle';hull.visible=type==='rowing';racket.visible=type==='tennis';
+            for(const hand of hands){
+                const w=hand.side<0?4:5,e=hand.side<0?2:3;
+                hand.root.visible=type==='rowing';joints[w].scale.setScalar(type==='rowing'?.6:1);
+                joints[w].material=type==='rowing'?wristMaterial:jointmat;
+                if(type!=='rowing')continue;
+                const direction=coords[w].clone().sub(coords[e]);
+                if(wristExamples[wristMode].keepGrip){
+                    const neutralDirection=neutralCoords[w].clone().sub(neutralCoords[e]).normalize();
+                    direction.copy(neutralCoords[w]).addScaledVector(neutralDirection,.16).sub(coords[w]);
+                }
+                hand.gripPoint.copy(orientHand(THREE,hand,coords[w],direction));
+            }
+            wristMaterial.color.set(wristMode==='aligned'?0xd8ecad:0xe6b878);
+            for(const item of sculls){
+                item.shaft.visible=item.blade.visible=type==='rowing';
+                if(type!=='rowing')continue;
+                const hand=hands[item.side<0?0:1].gripPoint;
+                const handleStart=hand.clone().add(new THREE.Vector3(0,0,-item.side*.09));
+                // These visual oars are illustrative props, not tracked blade positions.
+                const lift=current==='rowing-recovery'?.2:current==='rowing-finish'?.06:-.2;
+                item.end.copy(hand).add(new THREE.Vector3(-.22,lift,item.side*1.48));
+                const d=item.end.clone().sub(handleStart);
+                item.shaft.position.copy(handleStart).add(item.end).multiplyScalar(.5);
+                item.shaft.scale.y=d.length();
+                item.shaft.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());
+                item.blade.position.copy(item.end);
+            }
             const wrist=flipped?4:5,elbow=flipped?2:3;
             racket.position.copy(coords[wrist]);racket.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),coords[wrist].clone().sub(coords[elbow]).normalize());
         }
         const savedViews=new Map();
         let rotation=0;
-        function chooseView(view){savedViews.set(current,view);const native=isSidePose(current)?'side':'front';rotation=view===native?0:Math.PI/2;document.querySelectorAll('[data-model-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.modelView===view)));}
+        function chooseView(view){savedViews.set(current,view);const native=isSidePose(current)?'side':'front';rotation=view==='three-quarter'?Math.PI/4:view===native?0:Math.PI/2;document.querySelectorAll('[data-model-view]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.modelView===view)));}
         document.querySelectorAll('[data-model-view]').forEach(b=>b.onclick=()=>chooseView(b.dataset.modelView));
         $('rotate').onclick=()=>{rotation+=Math.PI/4;document.querySelectorAll('[data-model-view]').forEach(b=>b.setAttribute('aria-pressed','false'));};
         chooseView(isSidePose(current)?'side':'front');
-        sceneApi = { setPose(id) { target = getReference(id, flipped);chooseView(savedViews.get(id)||(isSidePose(id)?'side':'front')); }, setLive(values,adjust=[]) {
+        sceneApi = { setWristMode(mode){wristDetail.setMode(mode);}, setPose(id) { target = getReference(id, flipped);chooseView(savedViews.get(id)||(selectedPose().type==='rowing'?'three-quarter':isSidePose(id)?'side':'front')); }, setLive(values,adjust=[]) {
             liveGroup.visible=!!values;mat.color.set(values?0xdde5d6:0x6c8058);jointmat.color.set(values?0xf0f4e9:0xd8ecad);headmat.color.set(values?0xe5ebdf:0x869974);if(!values)return;
             const pts=values.map(v=>v?new THREE.Vector3(...v):null);liveJoints.forEach((m,i)=>{m.visible=!!pts[i];if(pts[i])m.position.copy(pts[i]);});
             links.forEach(([a,b],i)=>{const m=liveBones[i];m.visible=!!pts[a]&&!!pts[b];if(!m.visible)return;const d=pts[b].clone().sub(pts[a]);m.position.copy(pts[a]).add(pts[b]).multiplyScalar(.5);m.scale.y=d.length();m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());m.material.color.set(adjust.includes(landmarkIds[a])||adjust.includes(landmarkIds[b])?0x854316:0x243950);});
         } }; new ResizeObserver(() => { const { width, height } = host.getBoundingClientRect(); if (!width || !height) return; renderer.setSize(width, height); camera.aspect = width / height; camera.position.z = Math.max(6.8, 4.6 / camera.aspect); camera.updateProjectionMatrix(); }).observe(host);
-        renderer.setAnimationLoop(() => { if (document.hidden || host.hidden) return; coords.forEach((v, i) => { v.lerp(new THREE.Vector3(...target[i]), .08); joints[i].position.copy(v) }); links.forEach(([a, b], i) => { const d = new THREE.Vector3().subVectors(coords[b], coords[a]); bones[i].position.copy(coords[a]).add(coords[b]).multiplyScalar(.5); bones[i].scale.y = d.length(); bones[i].quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()) }); const shoulder = coords[0].clone().add(coords[1]).multiplyScalar(.5); const hip=coords[6].clone().add(coords[7]).multiplyScalar(.5);const axis=shoulder.clone().sub(hip).normalize();head.position.copy(shoulder).addScaledVector(axis,.31);neck.position.copy(shoulder).addScaledVector(axis,.12);head.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),axis);neck.quaternion.copy(head.quaternion); torso.position.copy(shoulder).add(coords[6].clone().add(coords[7]).multiplyScalar(.5)).multiplyScalar(.5); torso.rotation.z = -Math.atan2((coords[0].x+coords[1].x-coords[6].x-coords[7].x)/2,(coords[0].y+coords[1].y-coords[6].y-coords[7].y)/2); group.rotation.y += (rotation - group.rotation.y) * .06;updateProps();
+        renderer.setAnimationLoop(() => { if (document.hidden || host.hidden) return; neutralCoords.forEach((v,i)=>v.lerp(new THREE.Vector3(...target[i]),.08));
+            coords.forEach((v,i)=>v.copy(neutralCoords[i]));
+            if(selectedPose().type==='rowing'){
+                const example=wristExamples[wristMode];
+                for(const i of [4,5])coords[i].y+=example.wristLift;
+                for(const i of [2,3])coords[i].y+=example.elbowLift;
+            }
+            coords.forEach((v,i)=>joints[i].position.copy(v)); links.forEach(([a, b], i) => { const d = new THREE.Vector3().subVectors(coords[b], coords[a]); bones[i].position.copy(coords[a]).add(coords[b]).multiplyScalar(.5); bones[i].scale.y = d.length(); bones[i].quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()) }); const shoulder = coords[0].clone().add(coords[1]).multiplyScalar(.5); const hip=coords[6].clone().add(coords[7]).multiplyScalar(.5);const axis=shoulder.clone().sub(hip).normalize();head.position.copy(shoulder).addScaledVector(axis,.31);neck.position.copy(shoulder).addScaledVector(axis,.12);head.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),axis);neck.quaternion.copy(head.quaternion); torso.position.copy(shoulder).add(coords[6].clone().add(coords[7]).multiplyScalar(.5)).multiplyScalar(.5); torso.rotation.z = -Math.atan2((coords[0].x+coords[1].x-coords[6].x-coords[7].x)/2,(coords[0].y+coords[1].y-coords[6].y-coords[7].y)/2); group.rotation.y += (rotation - group.rotation.y) * .06;updateProps();
             const boundPoints=[...coords,head.position.clone().add(new THREE.Vector3(0,.2,0))];
             if(racket.visible)boundPoints.push(new THREE.Vector3(0,.75,0).applyQuaternion(racket.quaternion).add(racket.position));
+            if(hull.visible)for(const item of sculls)for(const sign of [-1,1])boundPoints.push(item.end.clone().add(new THREE.Vector3(.24*sign,.06*sign,.13*sign)));
             const minY=Math.min(...boundPoints.map(v=>v.y))-.12,maxY=Math.max(...boundPoints.map(v=>v.y))+.12;
             const projected=boundPoints.map(v=>v.x*Math.cos(group.rotation.y)+v.z*Math.sin(group.rotation.y));
             const minX=Math.min(...projected)-.18,maxX=Math.max(...projected)+.18;
@@ -168,7 +224,8 @@ async function initThree() {
             const area=host.getBoundingClientRect();
             const usableHeight=Math.max(.3,1-(full?230:190)/Math.max(area.height,1));
             const usableWidth=full?.88:.85;
-            const distance=Math.max((maxY-minY)/(2*Math.tan(34*Math.PI/360)*usableHeight),(maxX-minX)/(2*Math.tan(34*Math.PI/360)*camera.aspect*usableWidth))+.12;
+            const nearDepth=Math.max(0,...boundPoints.map(v=>-v.x*Math.sin(group.rotation.y)+v.z*Math.cos(group.rotation.y)));
+            const distance=Math.max((maxY-minY)/(2*Math.tan(34*Math.PI/360)*usableHeight),(maxX-minX)/(2*Math.tan(34*Math.PI/360)*camera.aspect*usableWidth))+nearDepth+.12;
             const centerY=(minY+maxY)/2;
             camera.position.lerp(new THREE.Vector3((minX+maxX)/2,centerY,distance),.12);camera.lookAt(camera.position.x,centerY,0);
             renderer.render(scene, camera) });

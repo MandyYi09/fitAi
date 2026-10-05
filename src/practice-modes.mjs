@@ -4,10 +4,10 @@ export const categoryLabels = {
 
 export const practiceModes = {
   rowing: {
-    title: 'Rowing · stroke walkthrough',
-    note: 'An illustrative rowing / ergometer sequence. Step through slowly; transitions are simplified. Wrist angle, grip and blade depth are not measured. Review on-water technique with your coach.',
-    source: 'https://www.concept2.co.uk/training/rowing-technique',
-    sourceLabel: 'Technique background · Concept2',
+    title: 'Sculling · on-water stroke',
+    note: 'An illustrative two-oar sculling sequence. The oars and blades show the two-sided movement, but their angle and water depth are not measured or validated. Ask your coach to check the hand path and blade work against your own footage.',
+    source: 'https://www.britishrowing.org/knowledge/rower-development/british-rowing-technique/water-rowing-technique/',
+    sourceLabel: 'On-water technique · British Rowing',
   },
   tennis: {
     title: 'Tennis · forehand walkthrough',
@@ -23,15 +23,15 @@ export const practiceModes = {
   },
 };
 
-const rowing = { type: 'rowing', area: 'STROKE STUDY', icon: '↔', cameraView: 'side', demoOnly: true, sequence: 'rowing', level: 'Slow study' };
+const rowing = { type: 'rowing', area: 'TWO-OAR SCULLING', icon: '↔', cameraView: 'side', demoOnly: true, sequence: 'rowing', level: 'Slow study' };
 const tennis = { type: 'tennis', area: 'SHADOW FOREHAND', icon: '◉', demoOnly: true, sequence: 'tennis', asymmetric: true, level: 'No ball needed' };
 const gentle = { type: 'gentle', area: 'SEATED UPPER BODY', icon: '⌑', tracking: 'upper', sequence: 'gentle', level: 'Seated', hold: 10 };
 
 export const practicePoses = [
-  { ...rowing, id: 'rowing-catch', name: 'Catch', description: 'Explore the compact starting shape of a rowing stroke.', cues: ['View the model side-on; use an ergometer to practise the full leg motion.', 'Reach from your hips with arms long and shoulders relaxed.', 'Keep the forward reach comfortable; avoid compressing past your available range.'] },
-  { ...rowing, id: 'rowing-drive', name: 'Drive', description: 'Study the leg-led part of the stroke before the arm pull.', cues: ['Begin by pressing through your legs on the ergometer.', 'Let your torso move toward upright as the legs extend.', 'Keep the arms long early in the drive; avoid lifting the shoulders to pull.'] },
-  { ...rowing, id: 'rowing-finish', name: 'Finish', description: 'Notice the low hand position at the end of the pull.', cues: ['Finish with legs long and a small backward lean.', 'Draw the handle toward the lower ribs with relaxed shoulders.', 'Keep the grip light and wrists aligned with the forearms; the model cannot verify wrist technique.'] },
-  { ...rowing, id: 'rowing-recovery', name: 'Recovery', description: 'Send the hands away before returning toward the catch.', cues: ['Let the arms lengthen before hinging forward at the hips.', 'After the hands pass the knees, allow the knees to bend.', 'Return smoothly and unhurriedly. Use your coach’s cues for on-water bladework.'] },
+  { ...rowing, id: 'rowing-catch', name: 'Catch · blade entry', description: 'See the two-oar starting shape as the blades enter the water.', cues: ['Explore the model from the ¾ view to see both oars.', 'Reach forward from the hips with long arms and relaxed shoulders.', 'Blade placement is illustrative; use your coach’s reference for the actual entry.'] },
+  { ...rowing, id: 'rowing-drive', wristStudy: true, name: 'Drive · hands draw in', description: 'Inspect the hand and forearm line as both handles draw toward the body.', cues: ['On the water, connect with the legs before drawing the two handles toward you.', 'Notice whether your hands travel along the boat or rise as you pull.', 'A body camera cannot confirm blade depth or wrist angle; review both with your coach.'] },
+  { ...rowing, id: 'rowing-finish', wristStudy: true, name: 'Finish · end of draw', description: 'Pause at the end of the pull, before releasing the blades. Inspect the line from forearm through wrist to hand.', cues: ['Keep a comfortable, small backward lean as the handles come toward the body.', 'Use the enlarged wrist view to compare an aligned hand, an arched wrist and a raised forearm.', 'Blade release and feathering are separate movements; this wrist study does not illustrate them.'] },
+  { ...rowing, id: 'rowing-recovery', name: 'Recovery · hands away', description: 'Look at the hands-away phase after each stroke.', cues: ['Send both handles away before the knees rise into their path.', 'Let the body turn forward from the hips before sliding toward the next catch.', 'Check with your coach whether your forearms lift during this transition.'] },
   { ...tennis, id: 'tennis-ready', name: 'Ready position', description: 'Start a slow forehand walkthrough from a balanced stance.', cues: ['Clear enough space for your arms; a racket is optional.', 'Stand comfortably with soft knees and hands in front.', 'Begin with a small, unforced shadow movement.'] },
   { ...tennis, id: 'tennis-turn', name: 'Unit turn', description: 'Turn the torso and hips together to prepare the forehand.', cues: ['Turn toward your racket side as one unit.', 'Let your free hand help guide the preparation.', 'Rotate the model to inspect the turn; avoid forcing your back or shoulder.'] },
   { ...tennis, id: 'tennis-forward', name: 'Forward swing', description: 'Explore the forward part of a slow shadow swing.', cues: ['Allow the body to turn back toward the imagined ball.', 'Move the hitting arm forward in a comfortable arc.', 'Keep this slow: the reference does not show exact contact or racket-face control.'] },
