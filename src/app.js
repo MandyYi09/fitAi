@@ -8,6 +8,7 @@ const $ = id => document.getElementById(id);
 import { poses } from './exercises.mjs';
 import { categoryLabels, practiceModes, sequenceFor } from './practice-modes.mjs';
 import {createHand, orientHand, createWristDetail, wristExamples} from './hand-guide.mjs';
+import {setLanguage, registerPoseTranslations, startLocalization, refreshLocalization} from './i18n.mjs';
 const selectedPose = () => poses.find(p => p.id === current);
 const framing = id => isUpperPose(id) ? 'Face the camera with shoulders, elbows, wrists and hips visible. Feet can stay out of frame.' : isSidePose(id) ? 'Turn side-on with your whole body visible.' : 'Face the camera with your whole body visible.';
 const presence = new PosePresence();
@@ -15,6 +16,7 @@ const focusView = createFocusView($('stage'),()=>{presence.dismiss();focusView.s
 let lastPoseFrame=0;
 let flipped = false;
 let wristMode = 'aligned';
+let guideUnavailable = false;
 let current = 'reach', filter = 'all', stream = null, landmarker = null, starting = false, runId = 0, lastVideo = -1, lastDetect = 0, lastFeedback = 0, remaining = 30, timerId = null, sceneApi = null;
 function setWristMode(mode) {
  wristMode = selectedPose().wristStudy && wristExamples[mode] ? mode : 'aligned';
@@ -35,7 +37,7 @@ function drawCards() {
 }
 function selectPose(id, keepSide=false) {
  const p=poses.find(p=>p.id===id); if(!p)throw Error('Unknown movement');
- if(p.demoOnly && stream)stopCamera();
+ if(stream && selectedPose().demoOnly !== p.demoOnly)stopCamera();
  if(!p.wristStudy || !selectedPose().wristStudy)wristMode='aligned';
  current=id; if(!keepSide)flipped=false; stopTimer(); remaining=p.hold || 30; updateTimer();
  $('hold-duration').textContent=p.demoOnly ? 'Step by step' : remaining+' sec';
@@ -44,11 +46,8 @@ function selectPose(id, keepSide=false) {
  $('pose-name').textContent=p.name; $('pose-description').textContent=p.description;
  $('pose-level').textContent=p.level || 'Easy';
  $('angle-label').textContent=p.demoOnly ? '↔ Rotate to explore this step' : isUpperPose(id) ? '↔ Front camera · upper body' : isSidePose(id) ? '↔ Side-on camera · full body' : '↔ Face your camera';
- $('camera-setup').textContent=p.demoOnly ? 'Demonstration only · no camera or technique scoring.' : 'Camera setup: '+framing(id);
- $('stage-note').hidden=!!stream || !!practiceModes[p.type];
- $('stage-note').replaceChildren();
- $('stage-note').append(p.demoOnly ? 'Explore one step at a time.' : isUpperPose(id) ? 'Stay seated. Move at your own pace.' : 'A little space goes a long way.');
- const hint=document.createElement('small'); hint.textContent=p.demoOnly ? 'Select the numbered steps above the guide.' : framing(id); $('stage-note').append(hint);
+ $('camera-setup').textContent=p.demoOnly ? 'Place your camera where your body and hands are visible. Live preview only; no technique scoring.' : 'Camera setup: '+framing(id);
+ $('stage-note').hidden=!guideUnavailable || !!stream;
  $('reference-label').textContent=p.demoOnly ? 'Illustrative 3D movement study' : isUpperPose(id) ? '3D reference · upper-body estimate' : '3D reference · 2D pose estimate';
  $('cues').innerHTML=p.cues.map((c,i)=>`<div class="cue"><span>${i+1}</span>${c}</div>`).join('');
  $('wrist-study').hidden=!p.wristStudy;
@@ -62,13 +61,13 @@ function selectPose(id, keepSide=false) {
  $('timer-panel').hidden=$('timer-note').hidden=!!p.demoOnly;
  $('timer-label').textContent=p.type==='gentle' ? 'MOVE AT YOUR PACE' : 'COMFORTABLE HOLD';
  $('timer-note').textContent=p.type==='gentle' ? 'An optional timer. Move slowly and rest whenever you need to.' : 'A manual timer. Release sooner if you need to.';
- $('camera').disabled=!!p.demoOnly || starting; $('camera').textContent=p.demoOnly ? 'Demo only' : stream ? 'Stop camera' : '▣ Enable camera';
- $('camera-title').textContent=p.demoOnly ? 'Learn the sequence.' : 'Your space. Your pace.';
- $('camera-sub').textContent=p.demoOnly ? 'Step through the guide above. Camera scoring is not available for this sequence.' : stream ? framing(id) : 'Enable your camera for an approximate body-shape comparison.';
+ $('camera').disabled=starting; $('camera').textContent=stream ? 'Stop camera' : '▣ Enable camera';
+ $('camera-title').textContent=p.demoOnly ? 'Practice with a live preview.' : 'Your space. Your pace.';
+ $('camera-sub').textContent=p.demoOnly ? stream ? 'Your camera is beside the 3D guide. No technique scoring.' : 'Enable camera to see yourself beside the 3D guide. No technique scoring.' : stream ? framing(id) : 'Enable your camera for an approximate body-shape comparison.';
  $('show-camera').hidden=document.querySelector('.comparison-panel').hidden=!!p.demoOnly;
  drawCards();sceneApi?.setPose(id);setWristMode(wristMode); $('switch-side').hidden=!(p.asymmetric || ['side','warrior'].includes(id));
  clearComparison();
- setFeedback({state:'unknown',title:p.demoOnly ? 'Movement study' : stream ? 'Find your starting position' : 'Ready when you are',text:p.demoOnly ? 'Use the numbered steps to inspect each position. These illustrative shapes have not been validated by a coach.' : stream ? framing(id) : 'You can follow the guide without a camera, or enable it for body-shape feedback.'});
+ setFeedback({state:'unknown',title:p.demoOnly ? stream ? 'Live preview · no score' : 'Movement study' : stream ? 'Find your starting position' : 'Ready when you are',text:p.demoOnly ? stream ? 'Use the live preview to observe yourself. The illustrated guide does not assess your technique.' : 'Use the numbered steps to inspect each position. You can enable camera for self-observation without scoring.' : stream ? framing(id) : 'You can follow the guide without a camera, or enable it for body-shape feedback.'});
 }
 function setFeedback(r) { $('focus-feedback').textContent=r.title+' — '+r.text; document.querySelector('.feedback').className = `feedback ${r.state}`; $('feedback-title').textContent = r.title; $('feedback-text').textContent = r.text; $('feedback-icon').textContent = r.state === 'good' ? '✓' : r.state === 'warning' ? '↗' : '◌'; }
 document.querySelectorAll('[data-filter]').forEach(b => b.onclick = () => { filter = b.dataset.filter; document.querySelectorAll('[data-filter]').forEach(x => x.classList.toggle('selected', x === b)); if(filter!=='all' && selectedPose().type!==filter)selectPose(poses.find(p=>p.type===filter).id);else drawCards(); });
@@ -76,14 +75,53 @@ $('help').onclick = () => $('help-dialog').showModal(); $('close-help').onclick 
 function updateTimer() { $('time').textContent = `00:${String(remaining).padStart(2, '0')}`; }
 function stopTimer() { clearInterval(timerId); timerId = null; $('timer').textContent = '▶'; $('timer').setAttribute('aria-label', 'Start hold timer'); }
 $('timer').onclick = () => { if (timerId) { stopTimer(); return } if (!remaining) remaining = poses.find(p=>p.id===current)?.hold || 30; $('timer').textContent = 'Ⅱ'; $('timer').setAttribute('aria-label', 'Pause hold timer'); timerId = setInterval(() => { remaining--; updateTimer(); if (!remaining) { stopTimer(); setFeedback({ state: 'unknown', title: 'Take a breath', text: 'Release gently. Rest or switch sides when you’re ready.' }) } }, 1000); };
-function stopCamera() { presence.reset();focusView.setExpanded(false);runId++; stream?.getTracks().forEach(t => t.stop()); stream = null; $('video').srcObject = null; $('video').hidden = $('overlay').hidden = true; $('three').hidden = false; $('stage-note').hidden = !!practiceModes[selectedPose().type]; $('rotate').hidden = false; $('stage').classList.remove('live'); $('show-camera').disabled=true; $('camera-dialog').close(); clearComparison(); $('mode').textContent = '○   REFERENCE PREVIEW'; $('camera').textContent = '▣   Enable camera'; $('camera-title').textContent = 'Your space. Your pace.'; $('camera-sub').textContent = 'Enable your camera to get live alignment cues.'; stopTimer(); setFeedback({ state: 'unknown', title: 'Camera is off', text: 'Your reference guide is ready. You can restart whenever you like.' }); }
+function stopCamera() {
+ presence.reset(); focusView.setExpanded(false); runId++;
+ stream?.getTracks().forEach(track => track.stop()); stream = null;
+ $('video').srcObject = $('demo-video').srcObject = null;
+ $('video').hidden = $('overlay').hidden = true;
+ $('demo-camera').hidden = true; $('stage-layout').classList.remove('with-preview');
+ $('three').hidden = false; $('stage-note').hidden = !guideUnavailable; $('rotate').hidden = false;
+ $('stage').classList.remove('live'); $('show-camera').disabled = true; $('camera-dialog').close();
+ clearComparison(); $('mode').textContent = '○   REFERENCE PREVIEW'; $('camera').textContent = '▣   Enable camera';
+ $('camera-title').textContent = selectedPose().demoOnly ? 'Practice with a live preview.' : 'Your space. Your pace.';
+ $('camera-sub').textContent = selectedPose().demoOnly ? 'Enable camera to see yourself beside the 3D guide. No technique scoring.' : 'Enable your camera to get live alignment cues.';
+ stopTimer(); setFeedback({state:'unknown',title:'Camera is off',text:'Your reference guide is ready. You can restart whenever you like.'});
+}
 $('camera').onclick = async () => {
-    if (selectedPose().demoOnly)return; if (stream) { stopCamera(); return } if (starting) return; starting = true; $('camera').disabled = true; $('camera').textContent = 'Connecting…'; try {
-        if (!navigator.mediaDevices?.getUserMedia) throw Error('Camera access requires HTTPS or localhost in a supported browser.'); stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }, audio: false }); $('camera-sub').textContent = 'Preparing on-device pose tracking…'; if (!landmarker) { const { FilesetResolver, PoseLandmarker } = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/vision_bundle.mjs'); const files = await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/wasm'); landmarker = await PoseLandmarker.createFromOptions(files, { baseOptions: { modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task' }, runningMode: 'VIDEO', numPoses: 1, minPoseDetectionConfidence: .6, minPosePresenceConfidence: .6, minTrackingConfidence: .6 }); }
-        if(!stream || selectedPose().demoOnly){stopCamera();selectPose(current);return;}
-        $('video').srcObject = stream; await $('video').play(); if(!stream || selectedPose().demoOnly){stopCamera();selectPose(current);return;} $('video').hidden = $('overlay').hidden = false; $('three').hidden = false; $('stage-note').hidden = true; $('rotate').hidden = false; $('stage').classList.add('live'); $('show-camera').disabled=false; $('mode').textContent = '●   LIVE · ON DEVICE'; $('camera').textContent = 'Stop camera'; $('camera-title').textContent = 'Make yourself comfortable.'; $('camera-sub').textContent = framing(current); lastVideo = -1; const token = ++runId; stream.getVideoTracks()[0].onended = () => { if (stream) stopCamera() }; requestAnimationFrame(t => track(t, token));
-    } catch (e) { stopCamera(); if(selectedPose().demoOnly){selectPose(current);return;} const msg = e.name === 'NotAllowedError' ? 'Camera permission was declined. Allow access in your browser and try again.' : e.name === 'NotFoundError' ? 'No camera was found. Connect a camera and try again.' : e.message || 'Could not start tracking. Check your connection and try again.'; $('camera-sub').textContent = msg; setFeedback({ state: 'warning', title: 'Camera could not start', text: msg }); } finally { starting = false; $('camera').disabled = !!selectedPose().demoOnly; }
+    if (stream) { stopCamera(); return } if (starting) return;
+    const openingDemo = !!selectedPose().demoOnly;
+    starting = true; $('camera').disabled = true; $('camera').textContent = 'Connecting…';
+    try {
+        if (!navigator.mediaDevices?.getUserMedia) throw Error('Camera access requires HTTPS or localhost in a supported browser.');
+        stream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' }, audio: false });
+        if (openingDemo !== !!selectedPose().demoOnly) { stopCamera(); return; }
+        stream.getVideoTracks()[0].onended = () => { if (stream) stopCamera(); };
+        if (openingDemo) {
+            $('demo-video').srcObject = stream; await $('demo-video').play();
+            if (!stream || !selectedPose().demoOnly) { stopCamera(); return; }
+            $('demo-camera').hidden = false; $('stage-layout').classList.add('with-preview');
+            $('camera').textContent = 'Stop camera'; $('camera-title').textContent = 'Practice with a live preview.';
+            $('camera-sub').textContent = 'Your camera is beside the 3D guide. No technique scoring.';
+            setFeedback({state:'unknown',title:'Live preview · no score',text:'Observe your movement beside the illustration. Ask your coach to review technique.'});
+            return;
+        }
+        $('camera-sub').textContent = 'Preparing on-device pose tracking…';
+        if (!landmarker) { const { FilesetResolver, PoseLandmarker } = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/vision_bundle.mjs'); const files = await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/wasm'); landmarker = await PoseLandmarker.createFromOptions(files, { baseOptions: { modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task' }, runningMode: 'VIDEO', numPoses: 1, minPoseDetectionConfidence: .6, minPosePresenceConfidence: .6, minTrackingConfidence: .6 }); }
+        if (!stream || selectedPose().demoOnly) { stopCamera(); return; }
+        $('video').srcObject = stream; await $('video').play();
+        if (!stream || selectedPose().demoOnly) { stopCamera(); return; }
+        $('video').hidden = $('overlay').hidden = false; $('three').hidden = false; $('stage-note').hidden = true; $('rotate').hidden = false;
+        $('stage').classList.add('live'); $('show-camera').disabled = false; $('mode').textContent = '●   LIVE · ON DEVICE';
+        $('camera').textContent = 'Stop camera'; $('camera-title').textContent = 'Make yourself comfortable.'; $('camera-sub').textContent = framing(current);
+        lastVideo = -1; const token = ++runId; requestAnimationFrame(t => track(t, token));
+    } catch (e) {
+        stopCamera();
+        const msg = e.name === 'NotAllowedError' ? 'Camera permission was declined. Allow access in your browser and try again.' : e.name === 'NotFoundError' ? 'No camera was found. Connect a camera and try again.' : e.message || 'Could not start tracking. Check your connection and try again.';
+        $('camera-sub').textContent = msg; setFeedback({state:'warning',title:'Camera could not start',text:msg});
+    } finally { starting = false; $('camera').disabled = false; }
 };
+$('demo-camera-stop').onclick = stopCamera;
 const connections = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28]];
 function track(t, token) {
     if (token !== runId || !stream) return; try {
@@ -137,7 +175,14 @@ function drawComparison(ctx, p, result, width, height) {
 }
 
 document.addEventListener('visibilitychange', () => { if (document.hidden) { stopTimer(); } }); window.addEventListener('pagehide', stopCamera);
+registerPoseTranslations(poses);
+document.querySelectorAll('[data-language]').forEach(button => button.onclick = () => {
+ setLanguage(button.dataset.language);
+ document.querySelectorAll('[data-language]').forEach(option => option.setAttribute('aria-pressed', String(option === button)));
+ refreshLocalization();
+});
 selectPose('reach');
+startLocalization();
 async function initThree() {
     try {
         const THREE = await import('https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js'); const host = $('three'); const scene = new THREE.Scene(); const camera = new THREE.PerspectiveCamera(34, 1, .1, 100); camera.position.set(0, 1.65, 6.8); camera.lookAt(0, 1.15, 0); const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true }); renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.shadowMap.enabled = true; host.append(renderer.domElement); scene.add(new THREE.HemisphereLight(0xffffff, 0x6f7d59, 2.5)); const light = new THREE.DirectionalLight(0xffffff, 3); light.position.set(-3, 5, 4); scene.add(light); const group = new THREE.Group(); scene.add(group); const mat = new THREE.MeshStandardMaterial({ color: 0x6c8058, roughness: .65, metalness: .05 }); const jointmat = new THREE.MeshStandardMaterial({ color: 0xd8ecad, roughness: .55 }); const headmat = new THREE.MeshStandardMaterial({ color: 0x869974, roughness: .55 }); const floor = new THREE.Mesh(new THREE.CircleGeometry(1.4, 80), new THREE.MeshBasicMaterial({ color: 0xafbda1, transparent: true, opacity: .28 })); floor.rotation.x = -Math.PI / 2; floor.position.y = .02; scene.add(floor); const rings = new THREE.Mesh(new THREE.RingGeometry(1.18, 1.19, 100), new THREE.MeshBasicMaterial({ color: 0x96aa81, side: THREE.DoubleSide, transparent: true, opacity: .5 })); rings.rotation.x = -Math.PI / 2; rings.position.y = .03; scene.add(rings);
@@ -229,7 +274,7 @@ async function initThree() {
             const centerY=(minY+maxY)/2;
             camera.position.lerp(new THREE.Vector3((minX+maxX)/2,centerY,distance),.12);camera.lookAt(camera.position.x,centerY,0);
             renderer.render(scene, camera) });
-    } catch (e) { $('stage-note').innerHTML = '3D guide could not load.<small>You can still follow the written cues or enable your camera.</small>'; $('rotate').disabled = true; }
+    } catch (e) { guideUnavailable = true; $('stage-note').hidden = false; $('stage-note').innerHTML = '3D guide could not load.<small>You can still follow the written cues or enable your camera.</small>'; $('rotate').disabled = true; }
 }
 initThree();
 const lifecycle = new AbortController(); if (document.modelContext?.registerTool) { try { Promise.resolve(document.modelContext.registerTool({ name: 'select_stretch', description: 'Select a movement reference without activating the camera.', inputSchema: { type: 'object', properties: { id: { type: 'string', enum: poses.map(p => p.id) } }, required: ['id'], additionalProperties: false }, annotations: { readOnlyHint: false }, execute(input) { if (!input || typeof input.id !== 'string' || !poses.some(p => p.id === input.id)) throw Error('Unknown movement'); selectPose(input.id); return { selected: current, cameraActive: !!stream } } }, { signal: lifecycle.signal })).catch(() => { }); } catch { } } window.addEventListener('pagehide', () => lifecycle.abort());
