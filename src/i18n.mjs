@@ -8,6 +8,9 @@ export function setLanguage(value) {
 
 // English remains the source copy. These strings are only used when Chinese is selected.
 const zh = {
+  'Mobility': '拉伸与舒缓', 'Choose your mode': '选择练习模式', 'Mobility mode': '拉伸与舒缓模式', 'Gentle mode': '舒缓模式',
+  'Standing and seated stretches for your shoulders, torso and legs.': '通过站姿和坐姿拉伸，伸展肩部、躯干和腿部。',
+  'Small seated movements for your arms and shoulders, with chair support.': '借助椅子支撑，以小幅坐姿动作活动手臂和肩膀。',
   'The figure carries a simplified sporting shotgun prop with visible hands. Follow the mobility study empty-handed. The model is a visual illustration, not a validated holding position or instruction in aiming or firing.': '小人带有可见的双手和简化的运动霰弹枪道具。跟随活动示意时请保持空手。模型仅供外观观察，并非经过验证的持枪姿势，也不教授瞄准或击发。',
   'Clay Shooting': '打飞碟', 'CLAY SHOOTING': '打飞碟', 'EMPTY-HAND MOBILITY': '空手活动', 'No equipment': '无需器械',
   'Clay Shooting · empty-hand movement': '打飞碟 · 空手动作观察',

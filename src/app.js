@@ -17,6 +17,8 @@ let lastPoseFrame=0;
 let flipped = false;
 let wristMode = 'aligned';
 let guideUnavailable = false;
+let mobilityMode = 'stretch';
+const activeCategory = () => filter === 'mobility' ? mobilityMode : filter;
 let current = 'reach', filter = 'all', stream = null, landmarker = null, starting = false, runId = 0, lastVideo = -1, lastDetect = 0, lastFeedback = 0, remaining = 30, timerId = null, sceneApi = null;
 function setWristMode(mode) {
  wristMode = selectedPose().wristStudy && wristExamples[mode] ? mode : 'aligned';
@@ -28,10 +30,13 @@ function setWristMode(mode) {
 }
 document.querySelectorAll('[data-wrist]').forEach(b=>b.onclick=()=>setWristMode(b.dataset.wrist));
 function drawCards() {
- const shown=poses.filter(p => filter === 'all' || p.type === filter);
+ const category=activeCategory();
+ const shown=poses.filter(p => category === 'all' || p.type === category);
+ $('mobility-modes').hidden=filter!=='mobility';
+ document.querySelectorAll('[data-mobility]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.mobility===mobilityMode)));
  $('movement-count').textContent=`${shown.length} movements`;
- $('category-intro').hidden=!practiceModes[filter];
- $('category-intro').textContent=practiceModes[filter]?.title || '';
+ $('category-intro').hidden=!practiceModes[category];
+ $('category-intro').textContent=practiceModes[category]?.title || '';
  $('poses').innerHTML=shown.map(p => `<button class="pose-card ${p.id === current ? 'active' : ''}" data-pose="${p.id}" aria-pressed="${p.id === current}"><span class="pose-icon" aria-hidden="true">${p.icon}</span><span><strong>${p.name}</strong><small>${categoryLabels[p.type]} · ${p.demoOnly ? 'Demo' : (p.hold || 30)+' sec'}</small></span><span class="arrow">↗</span></button>`).join('');
  document.querySelectorAll('[data-pose]').forEach(b => b.onclick=() => selectPose(b.dataset.pose));
 }
@@ -70,7 +75,16 @@ function selectPose(id, keepSide=false) {
  setFeedback({state:'unknown',title:p.demoOnly ? stream ? 'Live preview · no score' : 'Movement study' : stream ? 'Find your starting position' : 'Ready when you are',text:p.demoOnly ? stream ? 'Use the live preview to observe yourself. The illustrated guide does not assess your technique.' : 'Use the numbered steps to inspect each position. You can enable camera for self-observation without scoring.' : stream ? framing(id) : 'You can follow the guide without a camera, or enable it for body-shape feedback.'});
 }
 function setFeedback(r) { $('focus-feedback').textContent=r.title+' — '+r.text; document.querySelector('.feedback').className = `feedback ${r.state}`; $('feedback-title').textContent = r.title; $('feedback-text').textContent = r.text; $('feedback-icon').textContent = r.state === 'good' ? '✓' : r.state === 'warning' ? '↗' : '◌'; }
-document.querySelectorAll('[data-filter]').forEach(b => b.onclick = () => { filter = b.dataset.filter; document.querySelectorAll('[data-filter]').forEach(x => x.classList.toggle('selected', x === b)); if(filter!=='all' && selectedPose().type!==filter)selectPose(poses.find(p=>p.type===filter).id);else drawCards(); });
+document.querySelectorAll('[data-filter]').forEach(b => b.onclick = () => {
+ filter=b.dataset.filter;
+ document.querySelectorAll('[data-filter]').forEach(x=>{x.classList.toggle('selected',x===b);x.setAttribute('aria-pressed',String(x===b));});
+ const category=activeCategory();
+ if(category!=='all' && selectedPose().type!==category)selectPose(poses.find(p=>p.type===category).id);else drawCards();
+});
+document.querySelectorAll('[data-mobility]').forEach(button=>button.onclick=()=>{
+ mobilityMode=button.dataset.mobility;
+ if(selectedPose().type!==mobilityMode)selectPose(poses.find(p=>p.type===mobilityMode).id);else drawCards();
+});
 $('help').onclick = () => $('help-dialog').showModal(); $('close-help').onclick = $('got-it').onclick = () => $('help-dialog').close();
 function updateTimer() { $('time').textContent = `00:${String(remaining).padStart(2, '0')}`; }
 function stopTimer() { clearInterval(timerId); timerId = null; $('timer').textContent = '▶'; $('timer').setAttribute('aria-label', 'Start hold timer'); }

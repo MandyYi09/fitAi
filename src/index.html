@@ -19,8 +19,15 @@
                 </div>
                 <button class="quiet library-help" id="help">How it works ↗</button>
                 <div class="filters" role="group" aria-label="Movement category"><button class="selected"
-                        data-filter="all">All</button><button data-filter="stretch">Stretches</button><button
-                        data-filter="yoga">Yoga</button><button data-filter="rowing">Rowing</button><button data-filter="tennis">Tennis</button><button data-filter="gentle">Gentle</button><button data-filter="clay">Clay Shooting</button></div>
+                        data-filter="all">All</button><button data-filter="mobility">Mobility</button><button
+                        data-filter="yoga">Yoga</button><button data-filter="rowing">Rowing</button><button data-filter="tennis">Tennis</button><button data-filter="clay">Clay Shooting</button></div>
+                <section id="mobility-modes" class="mobility-modes" aria-labelledby="mobility-heading" hidden>
+                    <h3 id="mobility-heading">Choose your mode</h3>
+                    <div role="group" aria-label="Mobility mode">
+                        <button type="button" data-mobility="stretch" aria-pressed="true"><strong>Stretches</strong><small>Standing and seated stretches for your shoulders, torso and legs.</small></button>
+                        <button type="button" data-mobility="gentle" aria-pressed="false"><strong>Gentle mode</strong><small>Small seated movements for your arms and shoulders, with chair support.</small></button>
+                    </div>
+                </section>
                 <p id="category-intro" class="category-intro" hidden></p>
                 <div id="poses"></div>
                 <div class="before"><span>☀</span>
@@ -101,7 +108,7 @@
             health condition, ask a qualified professional which movements suit you.</p><p>More guidance: <a href="https://health.clevelandclinic.org/downward-dog-adho-mukha-svanasana" target="_blank" rel="noreferrer">Downward Dog setup</a>,  <a href="https://www.nhs.uk/live-well/exercise/sitting-exercises/" target="_blank" rel="noreferrer">NHS seated exercises</a> and <a href="https://www.nhs.uk/live-well/exercise/how-to-stretch-after-exercising/" target="_blank" rel="noreferrer">stretching after exercise</a>.</p><button id="got-it"
             class="primary">Find my space</button>
     </dialog>
-    <script type="module" src="app.js?v=14"></script>
+    <script type="module" src="app.js?v=15"></script>
 </body>
 
 </html>
