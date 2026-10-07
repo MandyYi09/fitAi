@@ -1,8 +1,12 @@
 export const categoryLabels = {
-  stretch: 'Stretch', yoga: 'Yoga', rowing: 'Rowing', tennis: 'Tennis', gentle: 'Gentle movement',
+  stretch: 'Stretch', yoga: 'Yoga', rowing: 'Rowing', tennis: 'Tennis', gentle: 'Gentle movement', clay: 'Clay Shooting',
 };
 
 export const practiceModes = {
+  clay: {
+    title: 'Clay Shooting · empty-hand movement',
+    note: 'The figure carries a simplified sporting shotgun prop with visible hands. Follow the mobility study empty-handed. The model is a visual illustration, not a validated holding position or instruction in aiming or firing.',
+  },
   rowing: {
     title: 'Sculling · on-water stroke',
     note: 'An illustrative two-oar sculling sequence. The oars and blades show the two-sided movement, but their angle and water depth are not measured or validated. Ask your coach to check the hand path and blade work against your own footage.',
@@ -26,8 +30,13 @@ export const practiceModes = {
 const rowing = { type: 'rowing', area: 'TWO-OAR SCULLING', icon: '↔', cameraView: 'side', demoOnly: true, sequence: 'rowing', level: 'Slow study' };
 const tennis = { type: 'tennis', area: 'SHADOW FOREHAND', icon: '◉', demoOnly: true, sequence: 'tennis', asymmetric: true, level: 'No ball needed' };
 const gentle = { type: 'gentle', area: 'SEATED UPPER BODY', icon: '⌑', tracking: 'upper', sequence: 'gentle', level: 'Seated', hold: 10 };
+const clay = { type: 'clay', area: 'EMPTY-HAND MOBILITY', icon: '◌', demoOnly: true, sequence: 'clay', level: 'No equipment', asymmetric: true };
 
 export const practicePoses = [
+  { ...clay, id: 'clay-stand', name: 'Settle · relaxed standing', description: 'Start an empty-hand movement study from a comfortable stance.', cues: ['Leave your hands empty and clear space around you.', 'Stand comfortably with soft knees and relaxed shoulders.', 'Breathe naturally before moving.'] },
+  { ...clay, id: 'clay-arms', name: 'Lift · easy arm movement', description: 'Explore a gentle arm lift without equipment.', cues: ['Bend your elbows and lift your empty hands a little in front of you.', 'Keep your shoulders relaxed and use a comfortable height.', 'This is a mobility illustration, not a firearm-holding position.'] },
+  { ...clay, id: 'clay-turn', name: 'Turn · small torso rotation', description: 'Observe a small, unforced torso turn.', cues: ['Keep your hands empty and turn only a little.', 'Move slowly within a comfortable range; do not force your back.', 'Use Switch side to view the other direction.'] },
+  { ...clay, id: 'clay-reset', name: 'Reset · lower and relax', description: 'Return to a relaxed standing position.', cues: ['Return gently toward the center.', 'Lower your arms and let your shoulders relax.', 'Pause before repeating; stop if anything feels uncomfortable.'] },
   { ...rowing, id: 'rowing-catch', name: 'Catch · blade entry', description: 'See the two-oar starting shape as the blades enter the water.', cues: ['Explore the model from the ¾ view to see both oars.', 'Reach forward from the hips with long arms and relaxed shoulders.', 'Blade placement is illustrative; use your coach’s reference for the actual entry.'] },
   { ...rowing, id: 'rowing-drive', wristStudy: true, name: 'Drive · hands draw in', description: 'Inspect the hand and forearm line as both handles draw toward the body.', cues: ['On the water, connect with the legs before drawing the two handles toward you.', 'Notice whether your hands travel along the boat or rise as you pull.', 'A body camera cannot confirm blade depth or wrist angle; review both with your coach.'] },
   { ...rowing, id: 'rowing-finish', wristStudy: true, name: 'Finish · end of draw', description: 'Pause at the end of the pull, before releasing the blades. Inspect the line from forearm through wrist to hand.', cues: ['Keep a comfortable, small backward lean as the handles come toward the body.', 'Use the enlarged wrist view to compare an aligned hand, an arched wrist and a raised forearm.', 'Blade release and feathering are separate movements; this wrist study does not illustrate them.'] },
@@ -48,6 +57,10 @@ const seat = [[-.23,1.4,0],[.23,1.4,0],[-.31,1.01,0],[.31,1.01,0],[-.36,.64,0],[
 const standing = [[-.23,1.63,0],[.23,1.63,0],[-.34,1.25,.12],[.34,1.25,.12],[-.12,1.37,.44],[.12,1.37,.44],[-.16,.98,0],[.16,.98,0],[-.3,.55,.09],[.3,.55,.09],[-.38,.12,0],[.38,.12,0]];
 const frame = (base, changes) => base.map((p,i) => [...(changes[i] || p)]);
 export const practiceReferences = {
+  'clay-stand': frame(standing, {2:[-.31,1.25,0],3:[.31,1.25,0],4:[-.36,.88,0],5:[.36,.88,0]}),
+  'clay-arms': frame(standing, {2:[-.34,1.29,.08],3:[.34,1.29,.08],4:[-.29,1.48,.39],5:[.29,1.48,.39]}),
+  'clay-turn': frame(standing, {0:[-.21,1.63,.08],1:[.21,1.63,-.08],2:[-.28,1.29,.2],3:[.35,1.29,-.04],4:[-.11,1.48,.47],5:[.44,1.48,.25],6:[-.15,.98,.03],7:[.15,.98,-.03]}),
+  'clay-reset': frame(standing, {2:[-.31,1.25,.04],3:[.31,1.25,.04],4:[-.37,.89,.1],5:[.37,.89,.1]}),
   'rowing-catch': sideFrame([[-.22,1.32],[-.6,1.22],[-.98,1.12],[0,.71],[-.62,.65],[-.68,.12]]),
   'rowing-drive': sideFrame([[.12,1.38],[-.23,1.18],[-.59,.99],[.19,.72],[-.28,.43],[-.68,.12]]),
   'rowing-finish': sideFrame([[.46,1.37],[.61,1.01],[.23,.99],[.25,.75],[-.22,.43],[-.68,.12]]),

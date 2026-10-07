@@ -8,6 +8,10 @@ export function setLanguage(value) {
 
 // English remains the source copy. These strings are only used when Chinese is selected.
 const zh = {
+  'The figure carries a simplified sporting shotgun prop with visible hands. Follow the mobility study empty-handed. The model is a visual illustration, not a validated holding position or instruction in aiming or firing.': '小人带有可见的双手和简化的运动霰弹枪道具。跟随活动示意时请保持空手。模型仅供外观观察，并非经过验证的持枪姿势，也不教授瞄准或击发。',
+  'Clay Shooting': '打飞碟', 'CLAY SHOOTING': '打飞碟', 'EMPTY-HAND MOBILITY': '空手活动', 'No equipment': '无需器械',
+  'Clay Shooting · empty-hand movement': '打飞碟 · 空手动作观察',
+  'An empty-hand mobility study for this sport: relaxed standing, arm movement and a small torso turn. Use no firearm or equipment. These illustrative poses do not teach aiming or firing and are not validated technique targets.': '本模式提供与这项运动相关的空手活动观察：放松站立、手臂活动和小幅转体。请勿使用枪械或器械。这些示意姿势不教授瞄准或击发，也不是经过验证的技术标准。',
   'fitAI — Movement practice prototype': 'fitAI — 动作练习原型',
   'Language': '语言',
   'An interactive movement practice prototype with 3D demonstrations and optional on-device pose feedback.': '互动动作练习原型，提供 3D 示范和可选的设备端姿态反馈。',
@@ -175,6 +179,10 @@ export function t(value) {
 }
 
 const poseZh = {
+  'clay-stand': ['准备 · 放松站立', '从舒适站姿开始空手动作观察。', ['保持双手空着，清理周围活动空间。', '舒适站立，膝盖微屈，肩膀放松。', '活动前先自然呼吸。']],
+  'clay-arms': ['抬臂 · 轻柔活动', '不使用器械，尝试轻柔抬臂。', ['弯曲手肘，将空着的双手稍微抬到身前。', '肩膀保持放松，抬到舒适高度即可。', '这是活动示意，并非持枪姿势教学。']],
+  'clay-turn': ['转体 · 小幅旋转', '观察小幅、放松的躯干转动。', ['保持双手空着，只做小幅转体。', '在舒适范围内缓慢活动，不要勉强扭转背部。', '点击“切换方向”观察另一侧。']],
+  'clay-reset': ['复位 · 放下放松', '回到放松的站立姿势。', ['轻轻转回中间。', '放下双臂，让肩膀放松。', '再次练习前稍作停顿；如有不适请停止。']],
   reach: ['双臂上举', '轻轻伸展双臂和上半身。', ['舒适站立，双脚约与髋同宽。', '双臂向上伸展，不要抬起肋骨。', '放松肩膀，自然呼吸。']],
   side: ['站姿侧弯', '轻轻伸展身体侧面。', ['双脚踩稳，膝盖微屈。', '一只手臂上举，身体稍向侧面倾斜。', '保持面朝前方，再换另一侧。']],
   mountain: ['山式', '找到稳定的站姿，感受片刻安静。', ['站稳，双脚保持舒适距离。', '双臂自然垂放，放松肩膀。', '让重量均匀落在双脚上。']],
