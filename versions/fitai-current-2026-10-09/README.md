@@ -1,7 +1,5 @@
 # fitAI movement practice prototype
 
-Archived runnable versions: [current full version and Stretch + Yoga basic version](versions/README.md).
-
 A browser-only prototype using Three.js 0.180.0 and MediaPipe Tasks Vision 0.10.21.
 
 Edit the application in `src/`. Run `npm run dev` to serve it at `http://127.0.0.1:5187/`, or serve `src/` using any static HTTP server. Keep that terminal open while using the preview. Run `npm test` for the pose checks. `npm run build` copies public application files into the ignored `build/` folder used for hosting; no dependencies need to be installed. Camera access is opt-in; frames are processed locally and never uploaded. Libraries, fonts and the pose model load from third-party CDNs, so the first visit requires network access.
