@@ -31,6 +31,8 @@ function setWristMode(mode) {
 document.querySelectorAll('[data-wrist]').forEach(b=>b.onclick=()=>setWristMode(b.dataset.wrist));
 function drawCards() {
  const category=activeCategory();
+ document.documentElement.dataset.theme=filter==='all'?'all':filter==='mobility'?'mobility':category;
+ sceneApi?.setTheme();
  const shown=poses.filter(p => category === 'all' || p.type === category);
  $('mobility-modes').hidden=filter!=='mobility';
  document.querySelectorAll('[data-mobility]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.mobility===mobilityMode)));
@@ -92,7 +94,8 @@ $('timer').onclick = () => { if (timerId) { stopTimer(); return } if (!remaining
 function stopCamera() {
  presence.reset(); focusView.setExpanded(false); runId++;
  stream?.getTracks().forEach(track => track.stop()); stream = null;
- $('video').srcObject = $('demo-video').srcObject = null;
+ $('tracking-video').pause();
+ $('tracking-video').srcObject = $('video').srcObject = $('demo-video').srcObject = null;
  $('video').hidden = $('overlay').hidden = true;
  $('demo-camera').hidden = true; $('stage-layout').classList.remove('with-preview');
  $('three').hidden = false; $('stage-note').hidden = !guideUnavailable; $('rotate').hidden = false;
@@ -123,7 +126,9 @@ $('camera').onclick = async () => {
         $('camera-sub').textContent = 'Preparing on-device pose tracking…';
         if (!landmarker) { const { FilesetResolver, PoseLandmarker } = await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/vision_bundle.mjs'); const files = await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/wasm'); landmarker = await PoseLandmarker.createFromOptions(files, { baseOptions: { modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task' }, runningMode: 'VIDEO', numPoses: 1, minPoseDetectionConfidence: .6, minPosePresenceConfidence: .6, minTrackingConfidence: .6 }); }
         if (!stream || selectedPose().demoOnly) { stopCamera(); return; }
-        $('video').srcObject = stream; await $('video').play();
+        // Keep the inference source outside the optional, normally closed preview dialog.
+        $('tracking-video').srcObject = $('video').srcObject = stream;
+        await $('tracking-video').play();
         if (!stream || selectedPose().demoOnly) { stopCamera(); return; }
         $('video').hidden = $('overlay').hidden = false; $('three').hidden = false; $('stage-note').hidden = true; $('rotate').hidden = false;
         $('stage').classList.add('live'); $('show-camera').disabled = false; $('mode').textContent = '●   LIVE · ON DEVICE';
@@ -139,7 +144,7 @@ $('demo-camera-stop').onclick = stopCamera;
 const connections = [[11, 12], [11, 13], [13, 15], [12, 14], [14, 16], [11, 23], [12, 24], [23, 24], [23, 25], [25, 27], [24, 26], [26, 28]];
 function track(t, token) {
     if (token !== runId || !stream) return; try {
-        const v = $('video'); if (v.readyState >= 2 && v.currentTime !== lastVideo && t - lastDetect > 85) {
+        const v = $('tracking-video'); if (v.readyState >= 2 && v.currentTime !== lastVideo && t - lastDetect > 85) {
             lastVideo = v.currentTime; lastDetect = t; const result = landmarker.detectForVideo(v, t); const c = $('overlay'); c.width = v.videoWidth; c.height = v.videoHeight; const ctx = c.getContext('2d'); ctx.clearRect(0, 0, c.width, c.height); const p = prepareLandmarks(current,result.landmarks[0]);
             const assessment = evaluate(current, p, v.videoWidth, v.videoHeight);
             lastPoseFrame=t;
@@ -280,11 +285,18 @@ async function initThree() {
         document.querySelectorAll('[data-model-view]').forEach(b=>b.onclick=()=>chooseView(b.dataset.modelView));
         $('rotate').onclick=()=>{rotation+=Math.PI/4;document.querySelectorAll('[data-model-view]').forEach(b=>b.setAttribute('aria-pressed','false'));};
         chooseView(isSidePose(current)?'side':'front');
-        sceneApi = { setWristMode(mode){wristDetail.setMode(mode);}, setPose(id) { target = getReference(id, flipped);chooseView(savedViews.get(id)||(['rowing','clay'].includes(selectedPose().type)?'three-quarter':isSidePose(id)?'side':'front')); }, setLive(values,adjust=[]) {
-            liveGroup.visible=!!values;mat.color.set(values?0xdde5d6:0x6c8058);jointmat.color.set(values?0xf0f4e9:0xd8ecad);headmat.color.set(values?0xe5ebdf:0x869974);if(!values)return;
+        function setModelTheme(){
+            const css=getComputedStyle(document.documentElement),color=key=>css.getPropertyValue(key).trim();
+            mat.color.set(liveGroup.visible?'#dde5d6':color('--figure-body'));
+            jointmat.color.set(liveGroup.visible?'#f0f4e9':color('--figure-joint'));
+            headmat.color.set(liveGroup.visible?'#e5ebdf':color('--figure-head'));
+            handMaterial.color.set(color('--figure-head'));floor.material.color.set(color('--figure-body'));rings.material.color.set(color('--figure-joint'));
+        }
+        sceneApi = { setTheme:setModelTheme, setWristMode(mode){wristDetail.setMode(mode);}, setPose(id) { target = getReference(id, flipped);chooseView(savedViews.get(id)||(['rowing','clay'].includes(selectedPose().type)?'three-quarter':isSidePose(id)?'side':'front')); }, setLive(values,adjust=[]) {
+            liveGroup.visible=!!values;setModelTheme();if(!values)return;
             const pts=values.map(v=>v?new THREE.Vector3(...v):null);liveJoints.forEach((m,i)=>{m.visible=!!pts[i];if(pts[i])m.position.copy(pts[i]);});
             links.forEach(([a,b],i)=>{const m=liveBones[i];m.visible=!!pts[a]&&!!pts[b];if(!m.visible)return;const d=pts[b].clone().sub(pts[a]);m.position.copy(pts[a]).add(pts[b]).multiplyScalar(.5);m.scale.y=d.length();m.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize());m.material.color.set(adjust.includes(landmarkIds[a])||adjust.includes(landmarkIds[b])?0x854316:0x243950);});
-        } }; new ResizeObserver(() => { const { width, height } = host.getBoundingClientRect(); if (!width || !height) return; renderer.setSize(width, height); camera.aspect = width / height; camera.position.z = Math.max(6.8, 4.6 / camera.aspect); camera.updateProjectionMatrix(); }).observe(host);
+        } }; setModelTheme(); new ResizeObserver(() => { const { width, height } = host.getBoundingClientRect(); if (!width || !height) return; renderer.setSize(width, height); camera.aspect = width / height; camera.position.z = Math.max(6.8, 4.6 / camera.aspect); camera.updateProjectionMatrix(); }).observe(host);
         renderer.setAnimationLoop(() => { if (document.hidden || host.hidden) return; neutralCoords.forEach((v,i)=>v.lerp(new THREE.Vector3(...target[i]),.08));
             coords.forEach((v,i)=>v.copy(neutralCoords[i]));
             if(selectedPose().type==='rowing'){
